@@ -1,0 +1,9 @@
+# data.yaml
+# 指定数据集的绝对或相对路径
+path: ./datasets/smoking_data
+train: images/train
+val: images/val
+
+# 告诉模型要检测几种东西，以及它们叫什么名字
+names:
+  0: smoking      # 类别 0：吸烟

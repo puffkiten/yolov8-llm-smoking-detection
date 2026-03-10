@@ -1,0 +1,8 @@
+# data.yaml
+path: ./datasets/smoking_data  # 数据集根目录
+train: train/images            # 训练集图片目录
+val: valid/images              # 验证集图片目录
+
+# 下面的 classes 保持原样即可，通常是这样：
+names:
+  0: cigarette   # 或者 smoking，以 Roboflow 生成的为准
