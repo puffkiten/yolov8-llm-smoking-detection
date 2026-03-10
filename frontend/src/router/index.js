@@ -3,6 +3,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { h } from 'vue'
 import Login from '../views/Login.vue'
 import Layout from '../components/Layout.vue'
+import Register from '../views/Register.vue'
+import AuthGoogle from '../views/AuthGoogle.vue'
 
 // 💡 极客写法：用原生 render 函数创建一个占位组件，绕过 Vite 的文件检查
 const Placeholder = (title) => ({ 
@@ -20,6 +22,16 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: Login
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: Register
+    },
+    {
+      path: '/auth/google',
+      name: 'authGoogle',
+      component: AuthGoogle
     },
     {
       path: '/',

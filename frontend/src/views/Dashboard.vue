@@ -7,19 +7,19 @@
         <p class="page-sub">欢迎回来，这是您今天的系统运行快报。</p>
       </div>
       <div class="page-actions">
-        <button class="btn-refresh" @click="fetchDashboardData" :disabled="isLoading">
+        <BaseButton type="default" @click="fetchDashboardData" :disabled="isLoading">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :class="{'spinning': isLoading}">
             <polyline points="1 4 1 10 7 10"/>
             <path d="M3.51 15a9 9 0 1 0 .49-5.05"/>
           </svg>
           {{ isLoading ? '刷新中...' : '刷新数据' }}
-        </button>
-        <button class="btn-new" @click="$emit('new-detection')">
+        </BaseButton>
+        <BaseButton type="primary" @click="$emit('new-detection')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
           发起新检测
-        </button>
+        </BaseButton>
       </div>
     </div>
 
@@ -197,6 +197,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 import { useRouter } from 'vue-router'
+import BaseButton from '@/components/ui/BaseButton.vue'
 // import axios from 'axios' // 预留：等后端写好后引入
 
 const router = useRouter()
@@ -215,6 +216,7 @@ const systemStatus = ref({ title: '', description: '', status: '' })
 // ECharts 实例引用
 const trendChartRef = ref(null)
 let trendChart = null
+let resizeHandler = null
 
 // 动态判断涨跌颜色样式
 const getTrendClass = (trendStr) => {
@@ -229,7 +231,12 @@ const renderChart = (xAxisData, seriesTotal, seriesSmoke) => {
   if (!trendChartRef.value) return
   if (!trendChart) {
     trendChart = echarts.init(trendChartRef.value)
-    window.addEventListener('resize', () => trendChart.resize())
+    resizeHandler = () => {
+      if (trendChart) {
+        trendChart.resize()
+      }
+    }
+    window.addEventListener('resize', resizeHandler)
   }
   trendChart.setOption({
     tooltip: { trigger: 'axis' },
@@ -297,7 +304,14 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (trendChart) trendChart.dispose()
+  if (trendChart) {
+    trendChart.dispose()
+    trendChart = null
+  }
+  if (resizeHandler) {
+    window.removeEventListener('resize', resizeHandler)
+    resizeHandler = null
+  }
 })
 </script>
 

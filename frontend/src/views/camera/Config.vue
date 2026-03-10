@@ -26,7 +26,12 @@
           <div class="tb-right">
             <div class="search-wrap">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-              <input type="text" placeholder="搜索设备名或区域..." class="search-input">
+              <input
+                v-model="cameraSearch"
+                type="text"
+                placeholder="搜索设备名或区域..."
+                class="search-input"
+              >
             </div>
             <button class="btn-primary" @click="openModal">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -42,7 +47,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="cam in cameras" :key="cam.id">
+            <tr v-for="cam in filteredCameras" :key="cam.id">
               <td class="td-id">{{ cam.id }}</td><td>{{ cam.name }}</td><td>{{ cam.region }}</td><td>{{ cam.threshold }}%</td>
               <td>
                 <div class="status-cell">
@@ -356,13 +361,21 @@ const cameras = ref([
   { id: 'CAM-002', name: '门禁入口球机', region: '办公大楼', threshold: 75, status: '在线', lastSync: '14:31:05' },
   { id: 'CAM-003', name: '仓库装卸货台', region: '仓储区', threshold: 80, status: '离线', lastSync: '22:15:40' }
 ])
+
+const cameraSearch = ref('')
+
+const filteredCameras = computed(() => {
+  const kw = cameraSearch.value.trim()
+  if (!kw) return cameras.value
+  return cameras.value.filter((c) => {
+    return c.name.includes(kw) || c.region.includes(kw) || c.id.includes(kw)
+  })
+})
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
-
 * { box-sizing: border-box; }
-.camera-config-page { position: relative; min-height: calc(100vh - 60px); font-family: 'Sora', 'Noto Sans SC', sans-serif; color: #1a2332; }
+.camera-config-page { position: relative; min-height: calc(100vh - 60px); font-family: inherit; color: #1a2332; }
 .page-content { padding: 0; transition: filter 0.3s ease; }
 .blur-bg { filter: grayscale(20%) opacity(0.8); }
 

@@ -164,11 +164,8 @@ const verifyPass = () => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap');
-
 .task-detail-page {
   width: 100%;
-  font-family: 'Sora', 'Noto Sans SC', sans-serif;
   color: #1a2332;
   /* 取消 padding，让外部容器 Layout 决定留白 */
 }

@@ -107,22 +107,28 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
-            <input type="text" placeholder="全局搜索..." class="search-input"/>
+            <input
+              v-model="searchKeyword"
+              type="text"
+              placeholder="全局搜索..."
+              class="search-input"
+              @keyup.enter="handleSearch"
+            />
           </div>
         </div>
         <div class="top-right">
-          <button class="icon-btn">
+          <button class="icon-btn" @click="handleRefreshClick">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="1 4 1 10 7 10"/>
               <path d="M3.51 15a9 9 0 1 0 .49-5.05"/>
             </svg>
           </button>
-          <button class="icon-btn">
+          <button class="icon-btn" @click="toggleTheme">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
             </svg>
           </button>
-          <button class="icon-btn notify">
+          <button class="icon-btn notify" @click="handleNotifyClick">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
@@ -166,14 +172,84 @@
 </template>
 
 <script setup>
-import { reactive, computed, provide } from 'vue'
+import { reactive, computed, provide, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route  = useRoute()
 
 const groups = reactive({ detect: true, camera: true })
 const toggleGroup = (key) => { groups[key] = !groups[key] }
+
+const searchKeyword = ref('')
+
+const theme = ref(document.documentElement.getAttribute('data-theme') || 'light')
+
+const applyTheme = (t) => {
+  document.documentElement.setAttribute('data-theme', t)
+  theme.value = t
+}
+
+const handleSearch = () => {
+  const kw = searchKeyword.value.trim()
+  if (!kw) {
+    ElMessage.warning('请输入搜索关键字')
+    return
+  }
+
+  const lower = kw.toLowerCase()
+
+  if (kw.includes('夜间') || lower.includes('dark')) {
+    applyTheme('dark')
+    ElMessage.success('已切换到夜间模式')
+    return
+  }
+
+  if (kw.includes('白天') || lower.includes('light')) {
+    applyTheme('light')
+    ElMessage.success('已切回日间模式')
+    return
+  }
+
+  if (kw.includes('仪表') || lower.includes('dashboard')) {
+    router.push('/dashboard')
+    return
+  }
+  if (kw.includes('上传') || lower.includes('upload')) {
+    router.push('/detection/upload')
+    return
+  }
+  if (kw.includes('任务') || kw.includes('检测') || lower.includes('detection')) {
+    router.push('/detection/tasks')
+    return
+  }
+  if (kw.includes('摄像头') || kw.includes('监控') || lower.includes('camera')) {
+    router.push('/camera/realtime')
+    return
+  }
+  if (kw.includes('用户') || lower.includes('user')) {
+    router.push('/system/users')
+    return
+  }
+
+  ElMessage.info(`暂未找到与「${kw}」匹配的页面`)
+}
+
+const toggleTheme = () => {
+  const next = theme.value === 'dark' ? 'light' : 'dark'
+  applyTheme(next)
+  ElMessage.success(next === 'dark' ? '已切换到夜间模式' : '已切回日间模式')
+}
+
+const handleRefreshClick = () => {
+  // 简单粗暴刷新当前页面
+  router.go(0)
+}
+
+const handleNotifyClick = () => {
+  ElMessage.info('通知中心开发中，当前暂无新消息')
+}
 
 // ─────────────────────────────────────────────
 // 当前登录用户
@@ -205,14 +281,11 @@ const currentRouteName = computed(() => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600&display=swap');
-
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 .dashboard-layout {
   display: flex; min-height: 100vh; width: 100vw;
   background: #f4f7fa;
-  font-family: 'Sora', 'Noto Sans SC', sans-serif;
   color: #1a2332;
 }
 

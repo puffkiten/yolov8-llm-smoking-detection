@@ -275,11 +275,8 @@ const submitToBackend = async (type) => {
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600&display=swap');
-
 .upload-page {
   width: 100%;
-  font-family: 'Sora', 'Noto Sans SC', sans-serif;
   color: #1a2332;
 }
 

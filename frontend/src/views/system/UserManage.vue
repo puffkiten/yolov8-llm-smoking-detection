@@ -85,7 +85,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="user in filteredUsers" :key="user.id">
+          <tr v-for="user in pagedUsers" :key="user.id">
             <td class="seq">{{ user.seq }}</td>
             <td>
               <div class="user-info">
@@ -146,19 +146,38 @@
               </template>
             </td>
           </tr>
-          <tr v-if="filteredUsers.length === 0">
+          <tr v-if="pagedUsers.length === 0">
             <td :colspan="isAdmin ? 9 : 8" style="text-align:center; padding: 40px; color: #9ca3af;">暂无数据</td>
           </tr>
         </tbody>
       </table>
 
       <div class="pagination">
-        <span class="page-info">显示 1 到 {{ filteredUsers.length }} 共 {{ filteredUsers.length }} 条记录</span>
+        <span class="page-info">
+          显示
+          {{ (currentPage - 1) * pageSize + (pagedUsers.length ? 1 : 0) }}
+          到
+          {{ (currentPage - 1) * pageSize + pagedUsers.length }}
+          共 {{ filteredUsers.length }} 条记录
+        </span>
         <div class="page-btns">
-          <button class="page-btn">上一页</button>
-          <button class="page-btn active">1</button>
-          <button class="page-btn">2</button>
-          <button class="page-btn">下一页</button>
+          <button
+            class="page-btn"
+            :disabled="currentPage === 1"
+            @click="currentPage > 1 && (currentPage -= 1)"
+          >
+            上一页
+          </button>
+          <button class="page-btn active">
+            {{ currentPage }} / {{ totalPages }}
+          </button>
+          <button
+            class="page-btn"
+            :disabled="currentPage === totalPages"
+            @click="currentPage < totalPages && (currentPage += 1)"
+          >
+            下一页
+          </button>
         </div>
       </div>
     </div>
@@ -339,6 +358,18 @@ const users = ref(initialUsers.map(u => ({ ...u })))
 const search = reactive({ name: '', phone: '', role: '全部角色', status: '全部状态' })
 const filteredUsers = ref([...users.value])
 
+const pageSize = ref(10)
+const currentPage = ref(1)
+
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredUsers.value.length / pageSize.value))
+)
+
+const pagedUsers = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredUsers.value.slice(start, start + pageSize.value)
+})
+
 const modal = reactive({ type: '', user: null })
 const form = reactive({ name: '', nickname: '', phone: '', email: '', gender: '男', role: '普通用户', status: '正常', password: '' })
 
@@ -382,11 +413,13 @@ function handleSearch() {
     if (search.status !== '全部状态' && u.status !== search.status) return false
     return true
   })
+  currentPage.value = 1
 }
 
 function handleReset() {
   Object.assign(search, { name: '', phone: '', role: '全部角色', status: '全部状态' })
   filteredUsers.value = [...users.value]
+  currentPage.value = 1
 }
 
 // ───────── Modal 开启 ─────────
@@ -435,6 +468,9 @@ function handleFormSave() {
   }
 
   filteredUsers.value = [...users.value]
+  if (currentPage.value > totalPages.value) {
+    currentPage.value = totalPages.value
+  }
   closeModal()
 }
 
@@ -442,6 +478,9 @@ function handleFormSave() {
 function handleDelete() {
   users.value = users.value.filter(u => u.id !== modal.user.id)
   filteredUsers.value = [...users.value]
+  if (currentPage.value > totalPages.value) {
+    currentPage.value = totalPages.value
+  }
   showToast('用户已删除', 'error')
   closeModal()
 }
@@ -455,6 +494,9 @@ function handleToggle() {
     showToast(wasNormal ? '用户已禁用' : '用户已启用')
   }
   filteredUsers.value = [...users.value]
+  if (currentPage.value > totalPages.value) {
+    currentPage.value = totalPages.value
+  }
   closeModal()
 }
 

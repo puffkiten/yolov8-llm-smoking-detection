@@ -137,9 +137,7 @@ const deviceTree = [
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;600&display=swap');
-
-.realtime-page { width: 100%; color: #1a2332; font-family: 'Sora', 'Noto Sans SC', sans-serif; }
+.realtime-page { width: 100%; color: #1a2332; font-family: inherit; }
 .layout-grid { display: grid; grid-template-columns: 1fr 320px; gap: 24px; align-items: flex-start; }
 
 /* 左侧样式纠偏 */
