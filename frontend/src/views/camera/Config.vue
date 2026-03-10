@@ -5,15 +5,15 @@
       <div class="stats-row">
         <div class="stat-card">
           <div class="stat-icon-wrap blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
-          <div class="stat-info"><p class="stat-label">总摄像头</p><p class="stat-val">5</p></div>
+          <div class="stat-info"><p class="stat-label">总摄像头</p><p class="stat-val">{{ totalCameras }}</p></div>
         </div>
         <div class="stat-card">
           <div class="stat-icon-wrap green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></div>
-          <div class="stat-info"><p class="stat-label">在线监控</p><p class="stat-val">4</p></div>
+          <div class="stat-info"><p class="stat-label">在线监控</p><p class="stat-val">{{ onlineCameras }}</p></div>
         </div>
         <div class="stat-card">
           <div class="stat-icon-wrap red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M17.31 17.31A10.43 10.43 0 0 1 12 19c-7 0-10-7-10-7a13.16 13.16 0 0 1 1.67-2.68"/><path d="M22 2L2 22"/></svg></div>
-          <div class="stat-info"><p class="stat-label">离线告警</p><p class="stat-val">1</p></div>
+          <div class="stat-info"><p class="stat-label">离线告警</p><p class="stat-val">{{ offlineCameras }}</p></div>
         </div>
       </div>
 
@@ -47,7 +47,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="cam in filteredCameras" :key="cam.id">
+            <tr v-for="cam in pagedCameras" :key="cam.id">
               <td class="td-id">{{ cam.id }}</td><td>{{ cam.name }}</td><td>{{ cam.region }}</td><td>{{ cam.threshold }}%</td>
               <td>
                 <div class="status-cell">
@@ -57,18 +57,22 @@
               </td>
               <td align="right">
                 <div class="action-icons">
-                  <svg class="ico view" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  <svg class="ico edit" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                  <svg class="ico delete" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+                  <svg class="ico view" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" @click="handleView(cam)"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  <svg class="ico edit" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" @click="handleEdit(cam)"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  <svg class="ico delete" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" @click="handleDelete(cam)"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                 </div>
               </td>
             </tr>
           </tbody>
         </table>
         <div class="pagination">
-          <span class="page-info">显示 1 到 5 项，共 5 项</span>
+          <span class="page-info">
+            显示 {{ pageStartIndex }} 到 {{ pageEndIndex }} 项，共 {{ filteredCameras.length }} 项
+          </span>
           <div class="page-controls">
-            <button class="page-btn">上一页</button><button class="page-num active">1</button><button class="page-btn">下一页</button>
+            <button class="page-btn" :disabled="currentPage === 1" @click="currentPage > 1 && (currentPage -= 1)">上一页</button>
+            <button class="page-num active">{{ currentPage }} / {{ totalPages }}</button>
+            <button class="page-btn" :disabled="currentPage === totalPages" @click="currentPage < totalPages && (currentPage += 1)">下一页</button>
           </div>
         </div>
       </div>
@@ -243,12 +247,20 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, computed, watch } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
-// --- 第一层：添加摄像头弹窗 ---
+// --- 第一层：添加/编辑摄像头弹窗 ---
 const showModal = ref(false) // 🚨 修复1：默认不再弹出
-const openModal = () => showModal.value = true
+const mode = ref('add') // add | edit
+const editingId = ref('')
+
+const openModal = () => {
+  mode.value = 'add'
+  editingId.value = ''
+  form.value = { name: '', region: '', location: '', streamUrl: '', threshold: 75 }
+  showModal.value = true
+}
 const closeModal = () => {
   showModal.value = false
   resetTestStatus()
@@ -351,7 +363,29 @@ const submitForm = () => {
     ElMessage.warning('请填写摄像头名称与所属区域')
     return
   }
-  ElMessage.success('摄像头添加成功！')
+  if (mode.value === 'edit') {
+    const idx = cameras.value.findIndex((c) => c.id === editingId.value)
+    if (idx !== -1) {
+      cameras.value[idx] = {
+        ...cameras.value[idx],
+        name: form.value.name,
+        region: form.value.region,
+        threshold: Number(form.value.threshold),
+      }
+      ElMessage.success('摄像头信息已更新')
+    }
+  } else {
+    const newId = `CAM-${String(cameras.value.length + 1).padStart(3, '0')}`
+    cameras.value.push({
+      id: newId,
+      name: form.value.name,
+      region: form.value.region,
+      threshold: Number(form.value.threshold),
+      status: '在线',
+      lastSync: new Date().toLocaleTimeString('zh-CN', { hour12: false }).slice(0, 8),
+    })
+    ElMessage.success('摄像头添加成功！')
+  }
   closeModal()
 }
 
@@ -371,6 +405,65 @@ const filteredCameras = computed(() => {
     return c.name.includes(kw) || c.region.includes(kw) || c.id.includes(kw)
   })
 })
+
+// 统计卡片（定义：基于当前 cameras 列表，不受搜索过滤影响）
+const totalCameras = computed(() => cameras.value.length)
+const onlineCameras = computed(() => cameras.value.filter(c => c.status === '在线').length)
+const offlineCameras = computed(() => cameras.value.filter(c => c.status !== '在线').length)
+
+// 列表分页（定义：对 filteredCameras 分页，搜索会影响列表与分页）
+const pageSize = ref(5)
+const currentPage = ref(1)
+
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredCameras.value.length / pageSize.value)))
+
+const pagedCameras = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredCameras.value.slice(start, start + pageSize.value)
+})
+
+const pageStartIndex = computed(() => (filteredCameras.value.length ? (currentPage.value - 1) * pageSize.value + 1 : 0))
+const pageEndIndex = computed(() => (filteredCameras.value.length ? Math.min(currentPage.value * pageSize.value, filteredCameras.value.length) : 0))
+
+// 搜索/过滤变化时回到第一页；数据变化时把页码夹到有效范围
+watch(cameraSearch, () => {
+  currentPage.value = 1
+})
+
+watch(filteredCameras, () => {
+  if (currentPage.value > totalPages.value) currentPage.value = totalPages.value
+}, { deep: true })
+
+const handleView = (cam) => {
+  ElMessage.info(`预览：${cam.name}（${cam.region} / 阈值 ${cam.threshold}% / ${cam.status}）`)
+}
+
+const handleEdit = (cam) => {
+  mode.value = 'edit'
+  editingId.value = cam.id
+  form.value = {
+    name: cam.name,
+    region: cam.region,
+    location: '',
+    streamUrl: '',
+    threshold: cam.threshold,
+  }
+  showModal.value = true
+}
+
+const handleDelete = async (cam) => {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除摄像头「${cam.name}」（${cam.id}）吗？此操作不可恢复。`,
+      '删除确认',
+      { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
+    )
+    cameras.value = cameras.value.filter((c) => c.id !== cam.id)
+    ElMessage.success('已删除摄像头')
+  } catch {
+    // cancelled
+  }
+}
 </script>
 
 <style scoped>

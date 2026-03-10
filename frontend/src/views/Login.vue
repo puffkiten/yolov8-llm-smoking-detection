@@ -1,6 +1,25 @@
 <template>
   <div class="login-page">
 
+    <!-- 全屏动态背景：彩色圆润粒子 -->
+    <div class="bg-visual" aria-hidden="true">
+      <canvas ref="particleCanvas" class="bg-canvas"></canvas>
+    </div>
+
+    <!-- 右侧文案（作为背景的一部分，不占布局，不挡交互） -->
+    <div class="bg-copy" aria-hidden="true">
+      <div class="bg-badge">YOLOv8</div>
+      <h2 class="bg-title">Real‑time vision inference</h2>
+      <p class="bg-sub">
+        Streaming • Multi‑camera • Low latency
+      </p>
+      <div class="bg-tags">
+        <span class="bg-tag">Detection</span>
+        <span class="bg-tag">Tracking</span>
+        <span class="bg-tag">Deploy</span>
+      </div>
+    </div>
+
     <!-- ══════════ LEFT PANEL ══════════ -->
     <div class="left-panel">
       <!-- Logo — 顶部居中 -->
@@ -106,57 +125,6 @@
       </div>
     </div>
 
-    <!-- ══════════ RIGHT PANEL ══════════ -->
-    <div class="right-panel">
-
-      <!-- 大卡片：圆角渐变 + 粒子 + AI状态条 -->
-      <div class="vis-card">
-        <canvas ref="particleCanvas" class="p-canvas"></canvas>
-        <!-- AI Status bar — 在卡片内底部 -->
-        <div class="ai-bar">
-          <div class="ai-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-            </svg>
-          </div>
-          <div class="ai-info">
-            <p class="ai-title">实时 AI 解析中</p>
-            <p class="ai-sub">YOLOv8 模型正在全速运行</p>
-          </div>
-          <span class="pulse-dot"></span>
-        </div>
-      </div>
-
-      <!-- Feature cards — 卡片外面，背景透明 -->
-      <div class="feat-row">
-        <div class="feat-card">
-          <div class="feat-ico blue">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-          </div>
-          <div>
-            <p class="feat-title">极高准确率</p>
-            <p class="feat-desc">依托 YOLOv8 视觉算法，针对吸烟手势及烟雾进行多维度深度识别。</p>
-          </div>
-        </div>
-        <div class="feat-card">
-          <div class="feat-ico purple">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-            </svg>
-          </div>
-          <div>
-            <p class="feat-title">毫秒级响应</p>
-            <p class="feat-desc">毫秒级延迟处理流数据，确保违规行为第一时间被系统发现并记录。</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Quote — 卡片外面 -->
-      <p class="quote">"Aero 致力于构建更加安全、健康的办公空间，让智能监测无处不在。"</p>
-
-    </div>
   </div>
 </template>
 
@@ -183,36 +151,47 @@ function initParticles() {
   if (!canvas) return
   const ctx = canvas.getContext('2d')
 
-  const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight }
+  const resize = () => {
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+  }
   resize()
   window.addEventListener('resize', resize)
 
-  const N = 80, DIST = 115
-  const mouse = { x: -999, y: -999 }
-  const onMove = e => { const r = canvas.getBoundingClientRect(); mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top }
-  const onOut  = () => { mouse.x = -999; mouse.y = -999 }
-  canvas.addEventListener('mousemove', onMove)
-  canvas.addEventListener('mouseleave', onOut)
+  // 彩色圆润粒子：更“原型/舒适”，不画连线
+  const N = 72
+  const mouse = { x: -9999, y: -9999 }
+  const onMove = (e) => { mouse.x = e.clientX; mouse.y = e.clientY }
+  const onOut  = () => { mouse.x = -9999; mouse.y = -9999 }
+  window.addEventListener('mousemove', onMove)
+  window.addEventListener('mouseleave', onOut)
 
-  const colors = [[160,210,255],[180,160,255],[100,230,240],[200,170,255],[80,200,255]]
+  // 更柔和的彩色系（偏蓝紫青）
+  const colors = [
+    [59, 158, 255],
+    [124, 92, 232],
+    [0, 188, 164],
+    [245, 166, 35],
+    [232, 92, 92],
+  ]
 
   class P {
     constructor() { this.reset() }
     reset() {
       this.x  = Math.random() * canvas.width
       this.y  = Math.random() * canvas.height
-      this.vx = (Math.random() - .5) * .55
-      this.vy = (Math.random() - .5) * .55
-      this.r  = Math.random() * 2 + 1.1
+      this.vx = (Math.random() - .5) * 0.35
+      this.vy = (Math.random() - .5) * 0.35
+      this.r  = Math.random() * 5.5 + 3.0
       this.c  = colors[Math.floor(Math.random() * colors.length)]
-      this.a  = Math.random() * .45 + .3
+      this.a  = Math.random() * 0.18 + 0.08
     }
     step() {
       const dx = this.x - mouse.x, dy = this.y - mouse.y
       const d  = Math.sqrt(dx*dx + dy*dy)
-      if (d < 85) { this.vx += (dx/d)*.45; this.vy += (dy/d)*.45 }
+      if (d < 120) { this.vx += (dx/d)*0.20; this.vy += (dy/d)*0.20 }
       const spd = Math.sqrt(this.vx*this.vx + this.vy*this.vy)
-      if (spd > 2) { this.vx = this.vx/spd*2; this.vy = this.vy/spd*2 }
+      if (spd > 1.2) { this.vx = this.vx/spd*1.2; this.vy = this.vy/spd*1.2 }
       this.vx *= .99; this.vy *= .99
       this.x  += this.vx; this.y += this.vy
       if (this.x < 0) this.x = canvas.width
@@ -221,9 +200,14 @@ function initParticles() {
       if (this.y > canvas.height) this.y = 0
     }
     draw() {
+      // 渐变柔光圆点
+      const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r * 3.2)
+      g.addColorStop(0, `rgba(${this.c[0]},${this.c[1]},${this.c[2]},${this.a})`)
+      g.addColorStop(0.35, `rgba(${this.c[0]},${this.c[1]},${this.c[2]},${this.a * 0.35})`)
+      g.addColorStop(1, `rgba(${this.c[0]},${this.c[1]},${this.c[2]},0)`)
+      ctx.fillStyle = g
       ctx.beginPath()
-      ctx.arc(this.x, this.y, this.r, 0, Math.PI*2)
-      ctx.fillStyle = `rgba(${this.c},${this.a})`
+      ctx.arc(this.x, this.y, this.r * 3.2, 0, Math.PI * 2)
       ctx.fill()
     }
   }
@@ -232,29 +216,18 @@ function initParticles() {
 
   const loop = () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    for (let i = 0; i < pts.length; i++) {
-      for (let j = i+1; j < pts.length; j++) {
-        const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y
-        const d  = Math.sqrt(dx*dx + dy*dy)
-        if (d < DIST) {
-          ctx.beginPath()
-          ctx.moveTo(pts[i].x, pts[i].y)
-          ctx.lineTo(pts[j].x, pts[j].y)
-          ctx.strokeStyle = `rgba(180,210,255,${(1 - d/DIST)*.28})`
-          ctx.lineWidth = .7
-          ctx.stroke()
-        }
-      }
-    }
+    ctx.save()
+    ctx.globalCompositeOperation = 'lighter'
     pts.forEach(p => { p.step(); p.draw() })
+    ctx.restore()
     raf = requestAnimationFrame(loop)
   }
   loop()
 
   return () => {
     window.removeEventListener('resize', resize)
-    canvas.removeEventListener('mousemove', onMove)
-    canvas.removeEventListener('mouseleave', onOut)
+    window.removeEventListener('mousemove', onMove)
+    window.removeEventListener('mouseleave', onOut)
   }
 }
 
@@ -269,7 +242,83 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
 .login-page {
   display: flex;
   min-height: 100vh;
-  background: #edf5ee;
+  /* 让整页背景统一，避免左右割裂 */
+  background: radial-gradient(1100px 520px at 18% 18%, rgba(59, 158, 255, .16), transparent 62%),
+              radial-gradient(900px 520px at 86% 26%, rgba(124, 92, 232, .12), transparent 62%),
+              #edf5ee;
+  gap: 28px;
+  position: relative;
+}
+
+/* 全屏动态背景 */
+.bg-visual {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.bg-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* 右侧文案（叠在背景上） */
+.bg-copy {
+  position: absolute;
+  right: 56px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  pointer-events: none;
+  width: min(520px, 42vw);
+}
+
+.bg-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.55);
+  border: 1px solid rgba(220,228,240,.9);
+  color: #1a2332;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  margin-bottom: 12px;
+}
+
+.bg-title {
+  margin: 0 0 10px 0;
+  font-size: 40px;
+  line-height: 1.05;
+  letter-spacing: -1.0px;
+  color: #0d1724;
+}
+
+.bg-sub {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: #5a6475;
+  line-height: 1.7;
+}
+
+.bg-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.bg-tag {
+  display: inline-flex;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.55);
+  border: 1px solid rgba(220,228,240,.9);
+  color: #2d3a4a;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 /* ══════════ LEFT PANEL ══════════ */
@@ -282,7 +331,9 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
   flex-direction: column;
   /* 水平内边距：左右相等，让内容真正居中 */
   padding: 44px 60px 40px 60px;
-  background: #edf5ee;
+  background: transparent;
+  position: relative;
+  z-index: 2;
 }
 
 /* Logo */
@@ -292,7 +343,7 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
   justify-content: center;
   gap: 10px;
   /* Logo 与 Welcome 之间留足距离 */
-  margin-bottom: 56px;
+  margin-bottom: 26px;
 }
 
 .logo-icon {
@@ -311,6 +362,16 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
   display: flex;
   flex-direction: column;
   justify-content: center;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 18px;
+  padding: 28px 28px 24px 28px;
+  box-shadow: 0 18px 52px rgba(17, 27, 39, 0.10);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  max-width: 440px;
+  width: 100%;
+  margin: 0 auto;
 }
 
 .form-header { margin-bottom: 30px; }
@@ -352,15 +413,15 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
 .f-input {
   width: 100%; height: 46px;
   padding: 0 40px;
-  background: #fff;
-  border: 1.5px solid #dde5ee;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1.5px solid rgba(221, 229, 238, 0.95);
   border-radius: 10px;
   font-size: 14px; color: #1a2332;
   font-family: inherit; outline: none;
   transition: border-color .2s, box-shadow .2s;
 }
 .f-input::placeholder { color: #b8c4d0; }
-.f-input:focus { border-color: #3b9eff; box-shadow: 0 0 0 3px rgba(59,158,255,.12); }
+.f-input:focus { border-color: #3b9eff; background: rgba(255, 255, 255, 0.92); box-shadow: 0 0 0 4px rgba(59,158,255,.12); }
 
 /* Options row */
 .opt-row {
@@ -452,63 +513,106 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
 .right-panel {
   flex: 1;
   display: flex;
-  flex-direction: column;          /* 纵向排列：大卡片 → feat行 → quote */
+  flex-direction: column;
   justify-content: center;
-  gap: 20px;
-  padding: 40px 44px 40px 16px;
-}
-
-/* 大卡片 — 圆角渐变，内含粒子画布 + AI状态条 */
-.vis-card {
+  padding: 40px 60px 40px 24px;
+  align-items: center;
   position: relative;
-  width: 100%;
-  /* 高度自适应，但给个最小高度 */
-  height: 340px;
-  border-radius: 22px;
   overflow: hidden;
-  /* 蓝→紫→粉渐变，还原原图色彩 */
-  background: linear-gradient(135deg,
-    #7ab8e8 0%,
-    #9a88d0 25%,
-    #c080c0 50%,
-    #d090b0 70%,
-    #8ab4d8 100%
-  );
-  box-shadow: 0 20px 56px rgba(80,100,200,.20);
-  flex-shrink: 0;
+  /* 右侧不做“卡片”，改为干净展示背景 */
+  background:
+    radial-gradient(900px 520px at 18% 20%, rgba(59, 158, 255, .14), transparent 62%),
+    radial-gradient(900px 520px at 86% 26%, rgba(124, 92, 232, .10), transparent 62%);
 }
 
 .p-canvas {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  cursor: crosshair;
-}
-
-/* AI Status bar */
-.ai-bar {
   position: absolute;
-  bottom: 16px; left: 16px; right: 16px;
-  background: rgba(255,255,255,.18);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,.28);
-  border-radius: 14px;
-  padding: 12px 16px;
-  display: flex; align-items: center; gap: 13px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: default;
+  opacity: 0.8;
 }
 
-.ai-icon {
-  width: 42px; height: 42px;
-  background: linear-gradient(135deg, #4a9eff, #7c5ce8);
-  border-radius: 11px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(74,158,255,.38);
+/* Hero overlay */
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  padding: 34px 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+  max-width: 720px;
+  width: 100%;
 }
 
-.ai-info { flex: 1; }
-.ai-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 3px; text-shadow: 0 1px 6px rgba(0,0,0,.2); }
-.ai-sub   { font-size: 12px; color: rgba(255,255,255,.78); }
+.hero-top { display: flex; justify-content: space-between; align-items: flex-start; }
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(220, 228, 240, 0.9);
+  color: #1a2332;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+}
+
+.hero-mid { max-width: 92%; }
+.hero-title {
+  margin: 0 0 10px 0;
+  font-size: 36px;
+  line-height: 1.12;
+  letter-spacing: -0.8px;
+  color: #0d1724;
+  text-shadow: none;
+}
+.hero-sub {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #5a6475;
+  max-width: 520px;
+}
+
+.hero-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.chips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(220, 228, 240, 0.9);
+  color: #2d3a4a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(220, 228, 240, 0.9);
+}
+.status-text { color: #1a2332; font-size: 12px; font-weight: 800; }
 
 /* 绿色呼吸点 */
 .pulse-dot {
@@ -523,40 +627,7 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
   100% { box-shadow: 0 0 0 0   rgba(78,255,145,0);  }
 }
 
-/* Feature row — 在大卡片外面，白色半透明卡片 */
-.feat-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-
-.feat-card {
-  background: rgba(255,255,255,.62);
-  border: 1px solid rgba(220,228,240,.7);
-  border-radius: 14px;
-  padding: 16px 15px;
-  display: flex; gap: 12px; align-items: flex-start;
-  backdrop-filter: blur(8px);
-}
-
-.feat-ico {
-  width: 34px; height: 34px;
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.feat-ico.blue   { background: rgba(59,158,255,.13); color: #3b9eff; }
-.feat-ico.purple { background: rgba(124,92,232,.11); color: #7c5ce8; }
-
-.feat-title { font-size: 13px; font-weight: 700; color: #1a2332; margin-bottom: 5px; }
-.feat-desc  { font-size: 11.5px; color: #6b7a90; line-height: 1.65; }
-
-/* Quote — 在最底部，背景透明 */
-.quote {
-  text-align: center;
-  font-size: 13px; color: #7a8896;
-  font-style: italic; line-height: 1.6;
-}
+/* 删除旧的 feature/quote 样式（改为统一 hero） */
 
 /* ── RESPONSIVE ── */
 @media (max-width: 960px) {

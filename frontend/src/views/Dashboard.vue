@@ -14,7 +14,7 @@
           </svg>
           {{ isLoading ? '刷新中...' : '刷新数据' }}
         </BaseButton>
-        <BaseButton type="primary" @click="$emit('new-detection')">
+        <BaseButton type="primary" @click="openNewDetection">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
@@ -22,6 +22,35 @@
         </BaseButton>
       </div>
     </div>
+
+    <el-dialog v-model="newDetectionVisible" title="发起新检测" width="520px">
+      <div class="nd-form">
+        <div class="nd-row">
+          <div class="nd-label">任务名称</div>
+          <el-input v-model="newDetectionForm.name" placeholder="例：车间二号位下午时段监控" />
+        </div>
+        <div class="nd-row">
+          <div class="nd-label">检测类型</div>
+          <el-radio-group v-model="newDetectionForm.type">
+            <el-radio-button label="video">视频检测</el-radio-button>
+            <el-radio-button label="image">图片检测</el-radio-button>
+          </el-radio-group>
+        </div>
+        <div class="nd-row">
+          <div class="nd-label">置信度阈值</div>
+          <div style="display:flex; gap:12px; align-items:center; width:100%;">
+            <el-slider v-model="newDetectionForm.confidence" :min="0" :max="1" :step="0.01" style="flex:1;" />
+            <span class="nd-val">{{ newDetectionForm.confidence.toFixed(2) }}</span>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <BaseButton type="default" @click="newDetectionVisible = false">取消</BaseButton>
+          <BaseButton type="primary" @click="submitNewDetection">去上传并开始</BaseButton>
+        </div>
+      </template>
+    </el-dialog>
 
     <div class="stats-grid">
       <div class="stat-card" v-loading="isLoading">
@@ -194,13 +223,38 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import * as echarts from 'echarts'
 import { useRouter } from 'vue-router'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import { ElMessage } from 'element-plus'
 // import axios from 'axios' // 预留：等后端写好后引入
 
 const router = useRouter()
+
+const newDetectionVisible = ref(false)
+const newDetectionForm = reactive({
+  name: '',
+  type: 'video',
+  confidence: 0.75,
+})
+
+const openNewDetection = () => {
+  if (!newDetectionForm.name) {
+    newDetectionForm.name = `新检测_${new Date().toLocaleString('zh-CN', { hour12: false }).replace(/[/:]/g, '-').slice(0, 16)}`
+  }
+  newDetectionVisible.value = true
+}
+
+const submitNewDetection = () => {
+  if (!newDetectionForm.name.trim()) {
+    ElMessage.warning('请输入任务名称')
+    return
+  }
+  newDetectionVisible.value = false
+  ElMessage.success('已进入上传页面（后端接入后即可真正创建任务）')
+  router.push('/detection/upload')
+}
 
 // 状态控制
 const pageLoading = ref(true) // 控制全屏首次加载
@@ -327,6 +381,11 @@ onUnmounted(() => {
 .page-title { font-size: 22px; font-weight: 700; color: #0d1724; letter-spacing: -.4px; margin-bottom: 4px; }
 .page-sub   { font-size: 13.5px; color: #7a8896; }
 .page-actions { display: flex; gap: 10px; align-items: center; }
+
+.nd-form { display: grid; gap: 14px; }
+.nd-row { display: grid; gap: 8px; }
+.nd-label { font-size: 13px; font-weight: 600; color: #374151; }
+.nd-val { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; color: #1f2937; font-weight: 700; }
 .btn-refresh {
   display: flex; align-items: center; gap: 6px; padding: 8px 16px;
   background: #fff; border: 1px solid #dde5ee; border-radius: 8px;

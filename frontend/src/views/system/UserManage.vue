@@ -66,12 +66,24 @@
           <span>用户列表 ({{ filteredUsers.length }})</span>
         </div>
         <!-- 仅管理员显示批量操作 -->
-        <button v-if="isAdmin" class="btn-default small">▽ 批量操作</button>
+        <div v-if="isAdmin" class="batch-wrap">
+          <button class="btn-default small" :disabled="selectedIds.length === 0" @click="toggleBatchMenu">
+            ▽ 批量操作 <span v-if="selectedIds.length">({{ selectedIds.length }})</span>
+          </button>
+          <div v-if="showBatchMenu" class="batch-menu" @click.self="showBatchMenu = false">
+            <button class="batch-item" @click="batchEnable">✓ 批量启用</button>
+            <button class="batch-item" @click="batchDisable">✕ 批量禁用</button>
+            <button class="batch-item danger" @click="batchDelete">✕ 批量删除</button>
+          </div>
+        </div>
       </div>
 
       <table>
         <thead>
           <tr>
+            <th v-if="isAdmin" style="width:44px;">
+              <input type="checkbox" :checked="isAllPageSelected" @change="toggleSelectAllPage($event)" />
+            </th>
             <th>序号</th>
             <th>用户信息</th>
             <th>昵称</th>
@@ -86,6 +98,14 @@
         </thead>
         <tbody>
           <tr v-for="user in pagedUsers" :key="user.id">
+            <td v-if="isAdmin">
+              <input
+                type="checkbox"
+                :disabled="!isSelectable(user)"
+                :checked="selectedIds.includes(user.id)"
+                @change="toggleSelect(user)"
+              />
+            </td>
             <td class="seq">{{ user.seq }}</td>
             <td>
               <div class="user-info">
@@ -147,7 +167,7 @@
             </td>
           </tr>
           <tr v-if="pagedUsers.length === 0">
-            <td :colspan="isAdmin ? 9 : 8" style="text-align:center; padding: 40px; color: #9ca3af;">暂无数据</td>
+            <td :colspan="isAdmin ? 10 : 9" style="text-align:center; padding: 40px; color: #9ca3af;">暂无数据</td>
           </tr>
         </tbody>
       </table>
@@ -327,6 +347,29 @@
           </div>
         </div>
       </transition>
+
+      <!-- ===== Modal: 批量删除确认 ===== -->
+      <transition name="modal">
+        <div v-if="modal.type === 'batchDelete'" class="overlay" @click.self="closeModal">
+          <div class="modal confirm-modal">
+            <div class="modal-header">
+              <span>批量删除确认</span>
+              <button class="modal-close" @click="closeModal">×</button>
+            </div>
+            <div class="modal-body center">
+              <div class="confirm-icon red-bg">⚠️</div>
+              <p class="confirm-title">
+                确定要删除选中的 <span class="red-text">{{ modal.user?.count || selectedIds.length }}</span> 个用户吗？
+              </p>
+              <p class="confirm-desc">此操作不可恢复，将永久删除用户数据。</p>
+            </div>
+            <div class="modal-footer center">
+              <button class="btn-default" @click="closeModal">取消</button>
+              <button class="btn-danger" @click="confirmBatchDelete">确认删除</button>
+            </div>
+          </div>
+        </div>
+      </transition>
     </teleport>
   </div>
 </template>
@@ -369,6 +412,48 @@ const pagedUsers = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   return filteredUsers.value.slice(start, start + pageSize.value)
 })
+
+// ───────── 批量操作：选择状态 ─────────
+const selectedIds = ref([])
+const showBatchMenu = ref(false)
+
+const isSelectable = (user) => {
+  // 规则同单行操作：不能操作自己；不能操作其他管理员
+  if (user.id === currentUser.id) return false
+  if (user.role === '管理员') return false
+  return true
+}
+
+const selectablePageUsers = computed(() => pagedUsers.value.filter(isSelectable))
+
+const isAllPageSelected = computed(() => {
+  const ids = selectablePageUsers.value.map(u => u.id)
+  return ids.length > 0 && ids.every(id => selectedIds.value.includes(id))
+})
+
+const toggleSelect = (user) => {
+  if (!isSelectable(user)) return
+  const idx = selectedIds.value.indexOf(user.id)
+  if (idx === -1) selectedIds.value.push(user.id)
+  else selectedIds.value.splice(idx, 1)
+}
+
+const toggleSelectAllPage = (e) => {
+  const checked = e.target.checked
+  const ids = selectablePageUsers.value.map(u => u.id)
+  if (checked) {
+    const set = new Set(selectedIds.value)
+    ids.forEach(id => set.add(id))
+    selectedIds.value = Array.from(set)
+  } else {
+    selectedIds.value = selectedIds.value.filter(id => !ids.includes(id))
+  }
+}
+
+const toggleBatchMenu = () => {
+  if (selectedIds.value.length === 0) return
+  showBatchMenu.value = !showBatchMenu.value
+}
 
 const modal = reactive({ type: '', user: null })
 const form = reactive({ name: '', nickname: '', phone: '', email: '', gender: '男', role: '普通用户', status: '正常', password: '' })
@@ -503,6 +588,47 @@ function handleToggle() {
 // ───────── 导出（占位） ─────────
 function handleExport() {
   showToast('数据导出中…')
+}
+
+// ───────── 批量操作：动作 ─────────
+function applyBatchStatus(nextStatus) {
+  const set = new Set(selectedIds.value)
+  users.value = users.value.map(u => {
+    if (!set.has(u.id)) return u
+    if (!isSelectable(u)) return u
+    return { ...u, status: nextStatus }
+  })
+  filteredUsers.value = [...users.value]
+}
+
+function batchEnable() {
+  applyBatchStatus('正常')
+  showToast(`已启用 ${selectedIds.value.length} 个用户`)
+  showBatchMenu.value = false
+}
+
+function batchDisable() {
+  applyBatchStatus('禁用')
+  showToast(`已禁用 ${selectedIds.value.length} 个用户`, 'error')
+  showBatchMenu.value = false
+}
+
+function batchDelete() {
+  const count = selectedIds.value.length
+  if (count === 0) return
+  modal.type = 'batchDelete'
+  modal.user = { count }
+  showBatchMenu.value = false
+}
+
+function confirmBatchDelete() {
+  const set = new Set(selectedIds.value)
+  users.value = users.value.filter(u => !set.has(u.id) || !isSelectable(u))
+  filteredUsers.value = [...users.value]
+  selectedIds.value = []
+  if (currentPage.value > totalPages.value) currentPage.value = totalPages.value
+  showToast('批量删除完成', 'error')
+  closeModal()
 }
 </script>
 
@@ -664,6 +790,34 @@ function handleExport() {
 }
 .table-title { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; }
 .title-bar { width: 4px; height: 18px; background: #1677ff; border-radius: 2px; }
+
+.batch-wrap { position: relative; }
+.batch-menu {
+  position: absolute;
+  right: 0;
+  top: 38px;
+  width: 160px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0,0,0,.10);
+  padding: 6px;
+  z-index: 20;
+}
+.batch-item {
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #1f2937;
+}
+.batch-item:hover { background: #f3f4f6; }
+.batch-item.danger { color: #dc2626; }
+.batch-item.danger:hover { background: rgba(220,38,38,.10); }
 
 table { width: 100%; border-collapse: collapse; }
 thead tr { background: #fafafa; }
