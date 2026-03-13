@@ -41,7 +41,7 @@
 
         <!-- Email -->
         <div class="field-group">
-          <label class="field-label">电子邮箱 / 账号</label>
+          <label class="field-label">电子邮箱</label>
           <div class="input-wrap">
             <span class="ico-left">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -52,6 +52,9 @@
             <input v-model="form.email" type="email" class="f-input" placeholder="admin@aero.com"/>
           </div>
         </div>
+
+        <!-- Error message (placed under email field for better UX) -->
+        <p v-if="errorText" class="form-error" role="alert">{{ errorText }}</p>
 
         <!-- Password -->
         <div class="field-group">
@@ -65,7 +68,7 @@
             </span>
             <input v-model="form.password" :type="showPwd ? 'text' : 'password'" class="f-input" placeholder="请输入登录密码"/>
             <span class="ico-right" @click="showPwd = !showPwd">
-              <svg v-if="!showPwd" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <svg v-if="showPwd" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
               </svg>
               <svg v-else width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -83,7 +86,7 @@
             <span class="cb-box"></span>
             <span class="cb-txt">记住我</span>
           </label>
-          <a href="#" class="forgot">忘记密码?</a>
+          <a href="#" class="forgot" @click.prevent="router.push('/forgot-password')">忘记密码?</a>
         </div>
 
         <!-- Login btn -->
@@ -98,7 +101,7 @@
         <div class="divider"><span class="dline"></span><span class="dtxt">或者</span><span class="dline"></span></div>
 
         <!-- Google -->
-        <button class="btn-google" @click="router.push('/auth/google')">
+        <button class="btn-google" @click="handleGoogleLogin">
           <svg width="17" height="17" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
             <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -129,22 +132,95 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
+import { googleTokenLogin } from 'vue3-google-login' // 👈 引入 Google 登录方法
+import { ElMessage } from 'element-plus' // 👈 补上 ElMessage
 
 const form = reactive({ email: '', password: '', remember: false })
 const showPwd = ref(false)
 const isLoading = ref(false)
+const errorText = ref('')
 const particleCanvas = ref(null)
 let raf = null, cleanup = null
 
 const router = useRouter()
 
-const handleLogin = () => {
-  if (isLoading.value) return
+// Google 登录逻辑
+const handleGoogleLogin = () => {
   isLoading.value = true
-  setTimeout(() => { isLoading.value = false }, 1500)
+  googleTokenLogin().then((response) => {
+    // 获取到 Google 的 access_token 后，直接发给后端
+    // 注意：后端 callback 需要兼容 access_token 参数
+    const url = `http://127.0.0.1:8000/api/auth/google/callback?access_token=${response.access_token}`
+    
+    // 我们手动发起 GET 请求，后端会返回 302
+    // 但因为是 API 调用，我们捕获它
+    window.location.href = url
+  }).catch(err => {
+    console.error('Google Login Error:', err)
+    ElMessage.error('Google 登录取消或失败')
+  }).finally(() => {
+    isLoading.value = false
+  })
 }
+
+// 简单邮箱格式校验
+const isValidEmail = (value) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(value)
+}
+
+// 输入变化时清除错误提示
+watch(() => [form.email, form.password], () => {
+  if (errorText.value) errorText.value = ''
+})
+
+// 真实登录逻辑
+const handleLogin = async () => {
+  errorText.value = ''
+  // console.log('handleLogin clicked', form.email, form.password)
+  // 防止重复点击
+  if (isLoading.value || !form.email || !form.password) {
+    if (!form.email || !form.password) errorText.value = '请输入邮箱和密码'
+    return
+  }
+
+  // 邮箱格式校验
+  if (!isValidEmail(form.email)) {
+    errorText.value = '请输入有效的邮箱地址，例如：admin@aero.com'
+    return
+  }
+  
+  isLoading.value = true // 开启按钮的 loading 动画
+
+  try {
+    // 1. 发送请求给 Django 后端
+    const response = await axios.post('http://127.0.0.1:8000/api/login/', {
+      username: form.email, // 使用邮箱字段登录
+      password: form.password
+    });
+
+    // 2. 登录成功，保存 Token
+    localStorage.setItem('access_token', response.data.access);
+    localStorage.setItem('refresh_token', response.data.refresh);
+    
+    // 3. 直接跳转，不再弹出成功提示
+    router.push('/dashboard'); // 注意：请确保你的 Vue Router 里配了 /dashboard 这个路由
+
+  } catch (error) {
+    // 4. 处理错误
+    console.error('登录异常:', error);
+    const errorMsg = error.response?.data?.detail || '账号或密码不正确，请重新输入';
+    errorText.value = '登录失败：' + errorMsg
+  } finally {
+    // 不管成功还是失败，都把 loading 状态关掉
+    isLoading.value = false;
+  }
+}
+
+
 
 function initParticles() {
   const canvas = particleCanvas.value
@@ -158,7 +234,6 @@ function initParticles() {
   resize()
   window.addEventListener('resize', resize)
 
-  // 彩色圆润粒子：更“原型/舒适”，不画连线
   const N = 72
   const mouse = { x: -9999, y: -9999 }
   const onMove = (e) => { mouse.x = e.clientX; mouse.y = e.clientY }
@@ -166,13 +241,8 @@ function initParticles() {
   window.addEventListener('mousemove', onMove)
   window.addEventListener('mouseleave', onOut)
 
-  // 更柔和的彩色系（偏蓝紫青）
   const colors = [
-    [59, 158, 255],
-    [124, 92, 232],
-    [0, 188, 164],
-    [245, 166, 35],
-    [232, 92, 92],
+    [59, 158, 255], [124, 92, 232], [0, 188, 164], [245, 166, 35], [232, 92, 92],
   ]
 
   class P {
@@ -200,7 +270,6 @@ function initParticles() {
       if (this.y > canvas.height) this.y = 0
     }
     draw() {
-      // 渐变柔光圆点
       const g = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r * 3.2)
       g.addColorStop(0, `rgba(${this.c[0]},${this.c[1]},${this.c[2]},${this.a})`)
       g.addColorStop(0.35, `rgba(${this.c[0]},${this.c[1]},${this.c[2]},${this.a * 0.35})`)
@@ -450,6 +519,15 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
 
 .forgot { font-size: 13px; color: #3b9eff; font-weight: 500; text-decoration: none; }
 .forgot:hover { opacity: .75; }
+
+/* Inline form error */
+.form-error {
+  margin: -6px 0 14px 0;
+  color: #d92d20;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 600;
+}
 
 /* Login button */
 .btn-login {

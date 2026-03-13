@@ -5,6 +5,10 @@ import Login from '../views/Login.vue'
 import Layout from '../components/Layout.vue'
 import Register from '../views/Register.vue'
 import AuthGoogle from '../views/AuthGoogle.vue'
+import ForgotPassword from '../views/ForgotPassword.vue'
+import ResetPassword from '../views/ResetPassword.vue'
+import AuthGoogleCallback from '../views/AuthGoogleCallback.vue'
+import ShareReport from '../views/share/ShareReport.vue'
 
 // 💡 极客写法：用原生 render 函数创建一个占位组件，绕过 Vite 的文件检查
 const Placeholder = (title) => ({ 
@@ -29,9 +33,29 @@ const router = createRouter({
       component: Register
     },
     {
+      path: '/forgot-password',
+      name: 'forgotPassword',
+      component: ForgotPassword
+    },
+    {
+      path: '/reset-password',
+      name: 'resetPassword',
+      component: ResetPassword
+    },
+    {
       path: '/auth/google',
       name: 'authGoogle',
       component: AuthGoogle
+    },
+    {
+      path: '/auth/google/callback',
+      name: 'authGoogleCallback',
+      component: AuthGoogleCallback
+    },
+    {
+      path: '/share/report',
+      name: 'shareReport',
+      component: ShareReport
     },
     {
       path: '/',
@@ -57,6 +81,11 @@ const router = createRouter({
           name: 'DetectionTasks',
           // 👇 换成真实的组件引用
           component: () => import('../views/detection/Tasks.vue') 
+        },
+        {
+          path: 'task/detail/:id',
+          name: 'TaskDetail',
+          component: () => import('../views/detection/Tasks.vue')
         },
         {
           path: 'camera/realtime',

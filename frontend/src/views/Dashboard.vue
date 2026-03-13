@@ -7,19 +7,22 @@
         <p class="page-sub">欢迎回来，这是您今天的系统运行快报。</p>
       </div>
       <div class="page-actions">
-        <BaseButton type="default" @click="fetchDashboardData" :disabled="isLoading">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :class="{'spinning': isLoading}">
-            <polyline points="1 4 1 10 7 10"/>
-            <path d="M3.51 15a9 9 0 1 0 .49-5.05"/>
-          </svg>
-          {{ isLoading ? '刷新中...' : '刷新数据' }}
-        </BaseButton>
-        <BaseButton type="primary" @click="openNewDetection">
+        <BaseButton type="primary" @click="openNewDetection" :disabled="isLoading">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
             <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
           </svg>
           发起新检测
         </BaseButton>
+        <div class="refresh-wrap">
+          <BaseButton type="primary" @click="fetchDashboardData" :disabled="isLoading">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" :class="{'spinning': isLoading}">
+              <polyline points="1 4 1 10 7 10"/>
+              <path d="M3.51 15a9 9 0 1 0 .49-5.05"/>
+            </svg>
+            {{ isLoading ? '刷新中...' : '刷新数据' }}
+          </BaseButton>
+          <div class="refresh-tip" v-if="lastRefreshedAt">上次刷新 {{ lastRefreshedAt }}</div>
+        </div>
       </div>
     </div>
 
@@ -110,9 +113,15 @@
         <div class="chart-header">
           <div>
             <h3 class="chart-title">检测趋势分析</h3>
-            <p class="chart-sub">过去 30 天的任务总量与违规事件统计</p>
+            <p class="chart-sub">任务总量与违规事件统计</p>
           </div>
-          <a href="#" class="chart-link">查看详细报告</a>
+          <div class="chart-actions">
+            <div class="range-tabs">
+              <button class="range-tab" :class="{ active: rangePreset === '1h' }" @click="setRange('1h')">1小时</button>
+              <button class="range-tab" :class="{ active: rangePreset === '1d' }" @click="setRange('1d')">1天</button>
+              <button class="range-tab" :class="{ active: rangePreset === '1w' }" @click="setRange('1w')">1周</button>
+            </div>
+          </div>
         </div>
         <div class="chart-area" ref="trendChartRef"></div>
       </div>
@@ -124,15 +133,8 @@
             <p class="chart-sub">不同媒介的任务处理分布比例</p>
           </div>
         </div>
-        <div class="type-bars">
-          <div v-if="typeStats.length === 0" class="empty-text">暂无数据</div>
-          <div class="type-bar-item" v-for="item in typeStats" :key="item.label">
-            <span class="type-label">{{ item.label }} ({{ item.percent }}%)</span>
-            <div class="type-bar-track">
-              <div class="type-bar-fill" :style="{ width: item.percent + '%' }"></div>
-            </div>
-          </div>
-        </div>
+        <div v-if="typeTotalCount === 0" class="empty-text">暂无数据</div>
+        <div v-else class="pie-area" ref="typeChartRef"></div>
       </div>
     </div>
 
@@ -142,22 +144,30 @@
           <h3 class="card-title">最近任务状态</h3>
           <a href="#" class="card-link">查看全部 →</a>
         </div>
-        <table class="task-table">
-          <thead>
-            <tr><th>任务ID</th><th>类型</th><th>状态</th><th>时间</th></tr>
-          </thead>
-          <tbody>
-            <tr v-if="tasks.length === 0">
-              <td colspan="4" class="empty-text" style="text-align: center; padding: 30px;">暂无任务数据</td>
-            </tr>
-            <tr v-for="task in tasks" :key="task.taskId">
-              <td class="task-id">{{ task.taskId }}</td>
-              <td>{{ task.type }}</td>
-              <td><span class="status-tag" :class="task.statusClass">{{ task.statusText }}</span></td>
-              <td class="task-time">{{ task.time }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div v-if="tasks.length === 0" class="empty-text" style="text-align: center; padding: 30px;">暂无任务数据</div>
+        <el-table v-else :data="tasks" size="small" style="width: 100%">
+          <el-table-column prop="id" label="任务ID" width="90" />
+          <el-table-column prop="typeText" label="类型" width="90" />
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }">
+              <el-tag :type="statusTagType(row.status)" effect="light">{{ statusTextCn(row.status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="核实状态" width="110">
+            <template #default="{ row }">
+              <el-tag :type="verifyTagType(row.verify_status)" effect="light">{{ verifyTextCn(row.verify_status) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="时间" min-width="140">
+            <template #default="{ row }">{{ formatShortTime(row.created_at) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="100" align="right">
+            <template #default="{ row }">
+              <el-button v-if="row.verify_status === 'pending'" type="primary" size="small" @click="goVerify(row)">去核实</el-button>
+              <span v-else style="color:#9aa5b4; font-size:12px;">—</span>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
 
       <div class="bottom-card log" v-loading="isLoading">
@@ -228,7 +238,7 @@ import * as echarts from 'echarts'
 import { useRouter } from 'vue-router'
 import BaseButton from '@/components/ui/BaseButton.vue'
 import { ElMessage } from 'element-plus'
-// import axios from 'axios' // 预留：等后端写好后引入
+import axios from 'axios'
 
 const router = useRouter()
 
@@ -256,23 +266,25 @@ const submitNewDetection = () => {
   router.push('/detection/upload')
 }
 
-// 状态控制
-const pageLoading = ref(true) // 控制全屏首次加载
-const isLoading = ref(false)  // 控制刷新按钮和局部加载
+const pageLoading = ref(true)
+const isLoading = ref(false)
+const lastRefreshedAt = ref('')
+const rangePreset = ref('1d')
+const rawItems = ref([])
 
-// 纯净的响应式数据源 (初始状态全空，等待后端注入)
 const stats = ref({ total: '', totalTrend: '', today: '', todayTrend: '', avgTime: '', avgTimeTrend: '', uptime: '', uptimeTrend: '' })
 const typeStats = ref([])
+const typeTotalCount = ref(0)
 const tasks = ref([])
 const logs = ref([])
 const systemStatus = ref({ title: '', description: '', status: '' })
 
-// ECharts 实例引用
 const trendChartRef = ref(null)
+const typeChartRef = ref(null)
 let trendChart = null
+let typeChart = null
 let resizeHandler = null
 
-// 动态判断涨跌颜色样式
 const getTrendClass = (trendStr) => {
   if (!trendStr) return 'stable'
   if (trendStr.includes('+') || trendStr.includes('↗')) return 'up'
@@ -280,8 +292,7 @@ const getTrendClass = (trendStr) => {
   return 'stable'
 }
 
-// 渲染 ECharts 图表的方法
-const renderChart = (xAxisData, seriesTotal, seriesSmoke) => {
+const renderChart = (xAxisData, seriesTotal, seriesSmoke, xAxisLabel) => {
   if (!trendChartRef.value) return
   if (!trendChart) {
     trendChart = echarts.init(trendChartRef.value)
@@ -289,62 +300,190 @@ const renderChart = (xAxisData, seriesTotal, seriesSmoke) => {
       if (trendChart) {
         trendChart.resize()
       }
+      if (typeChart) {
+        typeChart.resize()
+      }
     }
     window.addEventListener('resize', resizeHandler)
   }
   trendChart.setOption({
     tooltip: { trigger: 'axis' },
+    legend: { top: 0, right: 0, itemWidth: 10, itemHeight: 10, textStyle: { color: '#6b7a90', fontSize: 12, fontWeight: 700 } },
     grid: { top: 30, right: 20, bottom: 20, left: 40 },
-    xAxis: { type: 'category', data: xAxisData, axisLine: { lineStyle: { color: '#e8ecf2' } } },
-    yAxis: { type: 'value', splitLine: { lineStyle: { type: 'dashed', color: '#f0f3f8' } } },
+    xAxis: {
+      type: 'category',
+      data: xAxisData,
+      axisLine: { lineStyle: { color: '#e8ecf2' } },
+      axisLabel: xAxisLabel || {}
+    },
+    yAxis: { type: 'value', minInterval: 1, splitLine: { lineStyle: { type: 'dashed', color: '#f0f3f8' } } },
     series: [
-      { name: '任务总数', type: 'line', smooth: true, data: seriesTotal, itemStyle: { color: '#3b9eff' }, symbolSize: 6 },
-      { name: '吸烟事件', type: 'bar', barWidth: '30%', data: seriesSmoke, itemStyle: { color: '#f5a623', borderRadius: [4, 4, 0, 0] } }
+      { name: 'AI 告警数', type: 'line', smooth: true, data: seriesTotal, itemStyle: { color: '#3b9eff' }, symbolSize: 6 },
+      { name: '待核实数', type: 'bar', data: seriesSmoke, barWidth: 18, itemStyle: { color: '#f5a623', borderRadius: [6, 6, 0, 0] } }
     ]
   })
 }
 
-// 核心：请求真实后端数据的函数
+const renderTypePie = (videoCount, imageCount) => {
+  if (!typeChartRef.value) return
+  if (!typeChart) {
+    typeChart = echarts.init(typeChartRef.value)
+  }
+  typeChart.setOption({
+    tooltip: { trigger: 'item' },
+    legend: { bottom: 0, left: 'center' },
+    series: [
+      {
+        type: 'pie',
+        radius: ['40%', '68%'],
+        avoidLabelOverlap: true,
+        label: { formatter: '{b}\n{d}%', fontWeight: 700 },
+        labelLine: { length: 10, length2: 8 },
+        itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 },
+        data: [
+          { value: videoCount, name: '视频流检测', itemStyle: { color: '#3b9eff' } },
+          { value: imageCount, name: '离线图片检测', itemStyle: { color: '#00bca4' } },
+        ]
+      }
+    ]
+  })
+}
+
+const authHeaders = () => {
+  const access = localStorage.getItem('access_token') || ''
+  return access ? { Authorization: `Bearer ${access}` } : {}
+}
+
+const pad2 = (n) => (n < 10 ? '0' + n : '' + n)
+const todayKey = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
+const tsOf = (iso) => {
+  const t = iso ? new Date(iso).getTime() : 0
+  return Number.isFinite(t) ? t : 0
+}
+const formatClock = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`
+
+const _rangeMs = () => {
+  if (rangePreset.value === '1h') return 60 * 60 * 1000
+  if (rangePreset.value === '1d') return 24 * 60 * 60 * 1000
+  return 7 * 24 * 60 * 60 * 1000
+}
+
+const setRange = (preset) => {
+  rangePreset.value = preset
+  recomputeDashboard()
+  fetchTrend()
+}
+
+const statusTextCn = (s) => s === 'completed' ? '已完成' : s === 'failed' ? '检测中断' : '检测中'
+const statusTagType = (s) => s === 'completed' ? 'success' : s === 'failed' ? 'danger' : 'warning'
+const verifyTextCn = (s) => s === 'pending' ? '待核实' : '已核实'
+const verifyTagType = (s) => s === 'pending' ? 'warning' : 'success'
+const formatShortTime = (v) => {
+  const s = (v || '').toString()
+  if (!s) return ''
+  const m = s.match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/)
+  if (m) return `${m[2]}-${m[3]} ${m[4]}:${m[5]}`
+  if (s.length >= 16 && s.includes('-') && s.includes(':')) return s.slice(5, 16)
+  return s
+}
+const goVerify = (row) => {
+  router.push('/task/detail/' + row.id)
+}
+
+const fetchTrend = async () => {
+  try {
+    const resp = await axios.get('http://127.0.0.1:8000/api/dashboard/trend', {
+      headers: authHeaders(),
+      params: { preset: rangePreset.value }
+    })
+    const d = resp.data || {}
+    const labels = Array.isArray(d.labels) ? d.labels : []
+    const ai = Array.isArray(d.ai_alerts) ? d.ai_alerts : []
+    const pending = Array.isArray(d.pending_verifications) ? d.pending_verifications : []
+    const xAxisLabel = rangePreset.value === '1d' ? { interval: 2 } : { interval: 0 }
+    renderChart(labels, ai, pending, xAxisLabel)
+  } catch (e) {
+    renderChart([], [], [], {})
+  }
+}
+
+const recomputeDashboard = () => {
+  const items = Array.isArray(rawItems.value) ? rawItems.value : []
+  const now = Date.now()
+  const cutoff = now - _rangeMs()
+  const inRange = (it) => {
+    const iso = it.finished_at_iso || it.created_at_iso || ''
+    const t = tsOf(iso)
+    return t ? t >= cutoff : false
+  }
+
+  const total = items.length
+  const tKey = todayKey()
+  const today = items.filter(it => (it.created_at_iso || '').slice(0, 10) === tKey).length
+
+  const completedInRange = items.filter(it => it.status === 'completed' && inRange(it))
+  const avgMsArr = completedInRange.map(it => Number(it.process_time_ms || 0)).filter(ms => Number.isFinite(ms) && ms > 0)
+  const avgTimeMs = avgMsArr.length ? Math.round(avgMsArr.reduce((a, b) => a + b, 0) / avgMsArr.length) : 0
+  const avgTime = avgTimeMs ? (avgTimeMs / 1000).toFixed(2) + 's' : '--'
+
+  stats.value = {
+    total: String(total),
+    totalTrend: '',
+    today: String(today),
+    todayTrend: '',
+    avgTime,
+    avgTimeTrend: '',
+    uptime: '99.9%',
+    uptimeTrend: '稳定'
+  }
+
+  const videoCount = items.filter(i => i.type === 'video').length
+  const imageCount = items.filter(i => i.type === 'image').length
+  typeTotalCount.value = videoCount + imageCount
+  const denom = Math.max(1, videoCount + imageCount)
+  typeStats.value = [
+    { label: '视频流检测', percent: Math.round((videoCount / denom) * 100) },
+    { label: '离线图片检测', percent: Math.round((imageCount / denom) * 100) },
+  ]
+  if (typeTotalCount.value > 0) {
+    renderTypePie(videoCount, imageCount)
+  }
+
+  tasks.value = items.slice(0, 8).map(it => ({
+    id: it.id,
+    name: it.name,
+    type: it.type,
+    typeText: it.type === 'video' ? '视频流' : '图片',
+    status: it.status,
+    verify_status: it.verify_status || 'verified',
+    created_at: it.created_at
+  }))
+
+  logs.value = items.slice(0, 6).map(it => ({
+    id: it.id,
+    operator: '系统',
+    description: `任务 ${it.name} ${statusTextCn(it.status)}`,
+    time: it.created_at
+  }))
+}
+
 const fetchDashboardData = async () => {
   isLoading.value = true
   if (trendChart) trendChart.showLoading({ text: '数据拉取中...', color: '#3b9eff' })
   
   try {
-    /* // ==========================================
-    // TODO: 后期对接真实后端 API 的代码逻辑
-    // ==========================================
-    const res = await axios.get('http://localhost:8000/api/dashboard/summary')
-    if (res.data.code === 200) {
-      const data = res.data.data
-      stats.value = data.stats
-      typeStats.value = data.typeStats
-      tasks.value = data.tasks
-      logs.value = data.logs
-      systemStatus.value = data.systemStatus
-      
-      // 渲染图表真实数据
-      renderChart(data.chart.dates, data.chart.totalTasks, data.chart.smokeEvents)
-    }
-    */
-
-    // --- 目前用 setTimeout 模拟一次真实的异步网络请求 ---
-    await new Promise(resolve => setTimeout(resolve, 800))
-    // 模拟数据结构（未来删掉即可）
-    stats.value = { total: '12,482', totalTrend: '↗ 12.5%', today: '843', todayTrend: '↗ 5.2%', avgTime: '1.2s', avgTimeTrend: '↘ 0.3s', uptime: '99.98%', uptimeTrend: '稳定' }
-    typeStats.value = [{ label: '视频流检测', percent: 78 }, { label: '离线图片检测', percent: 22 }]
-    tasks.value = [
-      { taskId: 'TASK-8291', type: '视频流', statusClass: 'progress', statusText: '进行中', time: '10:24' },
-      { taskId: 'TASK-8290', type: '批量图片', statusClass: 'done', statusText: '已完成', time: '10:15' }
-    ]
-    logs.value = [
-      { id: 1, operator: '管理员', description: '配置了摄像头 #04 阈值', time: '5分钟前' }
-    ]
-    systemStatus.value = { title: '系统运行良好', description: 'GPU 算力充足，负载 24%', status: 'ok' }
-    renderChart(['10-01', '10-05', '10-10', '10-15', '10-20'], [200, 300, 450, 400, 500], [50, 80, 120, 100, 150])
-
+    const res = await axios.get('http://127.0.0.1:8000/api/detection/tasks', { headers: authHeaders() })
+    rawItems.value = Array.isArray(res.data?.results) ? res.data.results : []
+    recomputeDashboard()
+    await fetchTrend()
+    const now = new Date()
+    lastRefreshedAt.value = formatClock(now)
+    ElMessage.success('数据已刷新')
   } catch (error) {
-    console.error('获取 Dashboard 数据失败:', error)
-    // 可以在这里引入 ElMessage.error('网络请求失败')
+    ElMessage.error('刷新失败，请检查网络或登录状态')
   } finally {
     isLoading.value = false
     pageLoading.value = false
@@ -353,7 +492,6 @@ const fetchDashboardData = async () => {
 }
 
 onMounted(() => {
-  // 进入页面自动触发数据获取
   fetchDashboardData()
 })
 
@@ -361,6 +499,10 @@ onUnmounted(() => {
   if (trendChart) {
     trendChart.dispose()
     trendChart = null
+  }
+  if (typeChart) {
+    typeChart.dispose()
+    typeChart = null
   }
   if (resizeHandler) {
     window.removeEventListener('resize', resizeHandler)
@@ -381,6 +523,27 @@ onUnmounted(() => {
 .page-title { font-size: 22px; font-weight: 700; color: #0d1724; letter-spacing: -.4px; margin-bottom: 4px; }
 .page-sub   { font-size: 13.5px; color: #7a8896; }
 .page-actions { display: flex; gap: 10px; align-items: center; }
+.refresh-wrap { position: relative; display: inline-flex; }
+.refresh-tip {
+  position: absolute;
+  top: 44px;
+  right: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid #edf0f5;
+  background: #fff;
+  color: #6b7a90;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 12px 32px rgba(17, 27, 39, 0.12);
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: all .18s;
+  white-space: nowrap;
+  z-index: 10;
+}
+.refresh-wrap:hover .refresh-tip { opacity: 1; transform: translateY(0); }
 
 .nd-form { display: grid; gap: 14px; }
 .nd-row { display: grid; gap: 8px; }
@@ -427,12 +590,24 @@ onUnmounted(() => {
 .chart-link  { font-size: 12.5px; color: #3b9eff; text-decoration: none; font-weight: 500; }
 .chart-link:hover { opacity: .75; }
 .chart-area  { height: 260px; width: 100%;}
+.chart-actions { display: flex; align-items: center; gap: 10px; }
+.range-tabs { display: inline-flex; gap: 6px; padding: 3px; border: 1px solid #edf0f5; border-radius: 999px; background: #fff; }
+.range-tab {
+  height: 28px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #6b7a90;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .18s;
+}
+.range-tab:hover { background: #f4f7fa; color: #1a2332; }
+.range-tab.active { background: #eff6ff; color: #3b9eff; }
 
-.type-bars { padding-top: 8px; }
-.type-bar-item { margin-bottom: 24px; }
-.type-label { display: block; font-size: 12.5px; color: #6b7a90; margin-bottom: 8px; }
-.type-bar-track { height: 72px; background: #f4f7fa; border-radius: 6px; overflow: hidden; display: flex; align-items: flex-end; }
-.type-bar-fill  { height: 100%; border-radius: 6px; background: #00bca4; transition: width .6s cubic-bezier(0.4, 0, 0.2, 1); }
+.pie-area { height: 240px; width: 100%; }
 
 /* BOTTOM */
 .bottom-row { display: grid; grid-template-columns: 1fr 1fr 260px; gap: 16px; }

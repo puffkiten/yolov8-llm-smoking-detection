@@ -128,13 +128,30 @@
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
             </svg>
           </button>
-          <button class="icon-btn notify" @click="handleNotifyClick">
+          <button class="icon-btn notify" @click="toggleNotifyPanel">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
-            <span class="notify-dot"></span>
+            <span class="notify-badge" v-if="unreadCount > 0">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
           </button>
+          <div class="notify-panel" v-show="notifyOpen">
+            <div class="np-header">
+              <span>通知中心</span>
+              <button class="np-mark" @click="markAllRead">全部标为已读</button>
+            </div>
+            <div class="np-list">
+              <div v-if="notifications.length === 0" class="np-empty">暂无通知</div>
+              <div v-for="n in notifications" :key="n.id" class="np-item" :class="{ unread: !n.read }" @click="openNotification(n)">
+                <span class="np-tag" :class="n.level">{{ n.level.toUpperCase() }}</span>
+                <div class="np-content">
+                  <div class="np-title">{{ n.title }}</div>
+                  <div class="np-desc">{{ n.message }}</div>
+                  <div class="np-time">{{ n.time }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="user-info">
             <div class="user-text">
               <!-- 显示真实用户名和角色标签 -->
@@ -172,9 +189,10 @@
 </template>
 
 <script setup>
-import { reactive, computed, provide, ref } from 'vue'
+import { reactive, computed, provide, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import axios from 'axios'
 
 const router = useRouter()
 const route  = useRoute()
@@ -247,9 +265,93 @@ const handleRefreshClick = () => {
   router.go(0)
 }
 
-const handleNotifyClick = () => {
-  ElMessage.info('通知中心开发中，当前暂无新消息')
+const notifyOpen = ref(false)
+const notifications = ref([])
+const unreadCount = ref(0)
+const toggleNotifyPanel = () => { notifyOpen.value = !notifyOpen.value }
+const authHeaders = () => {
+  const access = localStorage.getItem('access_token') || ''
+  return access ? { Authorization: `Bearer ${access}` } : {}
 }
+const lastReadAtKey = 'notify_last_read_at'
+const lastReadAt = ref(Number(localStorage.getItem(lastReadAtKey) || 0))
+
+const runIndexKey = 'task_run_index'
+const lastCountedSigKey = 'task_run_last_counted_sig'
+const runIndex = ref(Number(localStorage.getItem(runIndexKey) || 0))
+const lastCountedSig = ref(localStorage.getItem(lastCountedSigKey) || '')
+const persistRunIndex = () => localStorage.setItem(runIndexKey, String(runIndex.value || 0))
+const persistLastCountedSig = () => localStorage.setItem(lastCountedSigKey, String(lastCountedSig.value || ''))
+
+const updateRunIndexFromLatest = async (latestId) => {
+  if (!latestId) return
+  try {
+    const resp = await axios.get(`http://127.0.0.1:8000/api/detection/tasks/${latestId}`, { headers: authHeaders() })
+    const d = resp.data || {}
+    const finishIso = d.finished_at_iso || d.finished_at || ''
+    const completed = d.status === 'completed'
+    const sig = (completed && finishIso) ? `${d.id}:${finishIso}:${d.process_time_ms || ''}` : ''
+    if (sig && sig !== lastCountedSig.value) {
+      runIndex.value = Number(runIndex.value || 0) + 1
+      persistRunIndex()
+      lastCountedSig.value = sig
+      persistLastCountedSig()
+    }
+  } catch (e) {
+    // 忽略网络/权限错误，保持上次计数
+  }
+}
+
+const fetchNotifications = async () => {
+  try {
+    const resp = await axios.get('http://127.0.0.1:8000/api/detection/tasks', { headers: authHeaders() })
+    const items = resp.data?.results || []
+    // 使用与左侧卡片相同的计数（runIndex），并在此处补充一次同步
+    await updateRunIndexFromLatest(items[0]?.id)
+    const completed = runIndex.value
+    const processing = items.filter(i => i.status === 'processing').length
+    const failed = items.filter(i => i.status === 'failed').length
+    notifications.value = items.slice(0, 5).map(it => {
+      const iso = it.created_at_iso || ''
+      const ts = iso ? new Date(iso).getTime() : 0
+      const read = ts > 0 ? ts <= lastReadAt.value : (it.status === 'completed')
+      const statusText = it.status === 'completed' ? '已完成' : it.status === 'failed' ? '检测中断' : '检测中'
+      const level = it.status === 'completed' ? 'info' : it.status === 'failed' ? 'error' : 'warn'
+      const reason = (it.error_message || '').toString()
+      return {
+      id: it.id,
+      title: `任务 ${it.name} ${statusText}`,
+      message: it.status === 'failed' && reason ? `原因: ${reason}` : `类型: ${it.type}，状态: ${it.status}`,
+      time: it.created_at,
+      level,
+      read,
+      _ts: ts
+      }
+    })
+    unreadCount.value = notifications.value.filter(n => !n.read && n.id !== 'summary').length
+    notifications.value.unshift({
+      id: 'summary',
+      title: `完成 ${completed} · 检测中 ${processing} · 中断 ${failed}`,
+      message: '状态总览',
+      time: '',
+      level: 'info',
+      read: true
+    })
+  } catch (e) {}
+}
+const markAllRead = () => {
+  const now = Date.now()
+  lastReadAt.value = now
+  localStorage.setItem(lastReadAtKey, String(now))
+  notifications.value = notifications.value.map(n => ({ ...n, read: true }))
+  unreadCount.value = 0
+  ElMessage.success('已全部标为已读')
+}
+const openNotification = (n) => {
+  notifyOpen.value = false
+  if (n.id) router.push('/detection/tasks')
+}
+let notifyTimer = null
 
 // ─────────────────────────────────────────────
 // 当前登录用户
@@ -257,10 +359,10 @@ const handleNotifyClick = () => {
 // role: 'admin' | 'user'
 // ─────────────────────────────────────────────
 const currentUser = reactive({
-  id: 1,
-  name: '张伟',
-  email: 'zhangwei@aero-tech.cn',
-  role: 'admin',   // 切换为 'user' 即可测试普通用户视角
+  id: 0,
+  name: '未登录',
+  email: '',
+  role: 'user',
 })
 
 // 向所有子孙组件注入
@@ -277,6 +379,29 @@ const currentRouteName = computed(() => {
   if (route.path.includes('/camera/realtime')) return '实时监控'
   if (route.path.includes('/system')) return '用户管理'
   return '系统页面'
+})
+
+onMounted(async () => {
+  const access = localStorage.getItem('access_token') || ''
+  if (!access) return
+  try {
+    const resp = await axios.get('http://127.0.0.1:8000/api/me', {
+      headers: { Authorization: `Bearer ${access}` }
+    })
+    const data = resp.data || {}
+    currentUser.id = data.id || 0
+    currentUser.name = data.username || '用户'
+    currentUser.email = data.email || ''
+    currentUser.role = data.is_staff ? 'admin' : 'user'
+  } catch (e) {
+    // token 失效则忽略，保持未登录态
+  }
+  fetchNotifications()
+  notifyTimer = window.setInterval(fetchNotifications, 2000)
+})
+onUnmounted(() => {
+  if (notifyTimer) window.clearInterval(notifyTimer)
+  notifyTimer = null
 })
 </script>
 
@@ -367,10 +492,43 @@ const currentRouteName = computed(() => {
 }
 .icon-btn:hover { background: #f5f8ff; color: #3b9eff; border-color: #d0e4ff; }
 .notify { position: relative; }
-.notify-dot {
-  position: absolute; top: 6px; right: 6px; width: 8px; height: 8px;
-  background: #f5615a; border-radius: 50%; border: 1.5px solid white;
+.notify-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5615a;
+  color: #fff;
+  border-radius: 999px;
+  border: 1.5px solid #fff;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
 }
+.notify-panel {
+  position: fixed; right: 24px; top: 72px; width: 360px;
+  background: #fff; border: 1px solid #edf0f5; border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(17, 27, 39, 0.12); z-index: 9999;
+}
+.np-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #f0f3f8; }
+.np-mark { border: none; background: transparent; color: #3b9eff; cursor: pointer; font-size: 12px; }
+.np-list { max-height: 320px; overflow: auto; }
+.np-empty { padding: 18px; color: #6b7a90; font-size: 13px; text-align: center; }
+.np-item { display: flex; gap: 10px; padding: 10px 12px; cursor: pointer; }
+.np-item.unread { background: #f8fbff; }
+.np-tag { width: 56px; height: 22px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; }
+.np-tag.info { background: #3b9eff; }
+.np-tag.warn { background: #f59e0b; }
+.np-tag.error { background: #e85c5c; }
+.np-content { flex: 1; }
+.np-title { font-size: 13px; font-weight: 700; color: #1a2332; margin-bottom: 2px; }
+.np-desc { font-size: 12px; color: #6b7a90; }
+.np-time { font-size: 11px; color: #9aa5b4; }
 .user-info {
   display: flex; align-items: center; gap: 12px; margin-left: 8px;
   cursor: pointer; padding-left: 12px; border-left: 1px solid #edf0f5;

@@ -375,7 +375,8 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, inject } from 'vue'
+import { ref, reactive, computed, inject, onMounted } from 'vue'
+import axios from 'axios'
 
 // ───────── 注入当前登录用户 ─────────
 // 由 Layout.vue 通过 provide('currentUser', ...) 注入
@@ -384,15 +385,9 @@ const currentUser = inject('currentUser', { id: 0, name: '', email: '', role: 'u
 const isAdmin = computed(() => currentUser.role === 'admin')
 
 // ───────── 初始数据 ─────────
-const initialUsers = [
-  { id: 1, seq: '01', name: '张伟',  email: 'zhangwei@aero-tech.cn',    nickname: '张伟',  phone: '138-0013-8001', gender: '男', role: '管理员', status: '正常', createdAt: '2023-10-12 14:30', avatar: 'ZW' },
-  { id: 2, seq: '02', name: '李娜',  email: 'lina_safety@aero-tech.cn', nickname: '李娜',  phone: '139-1122-3344', gender: '女', role: '普通用户', status: '正常', createdAt: '2023-11-05 09:15', avatar: 'LN' },
-  { id: 3, seq: '03', name: '王建国', email: 'jianguo.wang@aero-tech.cn', nickname: '王建国', phone: '136-5566-7788', gender: '男', role: '普通用户', status: '禁用', createdAt: '2023-12-01 16:45', avatar: 'WJ' },
-  { id: 4, seq: '04', name: '赵敏',  email: 'zhaomin@aero-tech.cn',     nickname: '赵敏',  phone: '131-9988-7766', gender: '女', role: '管理员', status: '正常', createdAt: '2024-01-20 11:00', avatar: 'ZM' },
-  { id: 5, seq: '05', name: '刘洋',  email: 'liuyang_dev@aero-tech.cn', nickname: '刘洋',  phone: '188-4433-2211', gender: '男', role: '普通用户', status: '正常', createdAt: '2024-02-14 10:20', avatar: 'LY' },
-]
+const initialUsers = []
 
-const AVATAR_COLORS = { ZW: '#4A90D9', LN: '#E8526A', WJ: '#6B7C8F', ZM: '#D4A27A', LY: '#5BAD8F' }
+const AVATAR_COLORS = { A: '#4A90D9', B: '#E8526A', C: '#6B7C8F', D: '#D4A27A', E: '#5BAD8F' }
 const avatarColor = (code) => AVATAR_COLORS[code] || '#888'
 
 // ───────── 状态 ─────────
@@ -506,6 +501,38 @@ function handleReset() {
   filteredUsers.value = [...users.value]
   currentPage.value = 1
 }
+
+onMounted(async () => {
+  const access = localStorage.getItem('access_token') || ''
+  if (!access) return
+  try {
+    const resp = await axios.get('http://127.0.0.1:8000/api/users', {
+      headers: { Authorization: `Bearer ${access}` }
+    })
+    const rows = (resp.data?.results || []).map((u, idx) => {
+      const name = u.username || (u.email?.split('@')[0] || '用户')
+      const avatar = (name[0] || 'A').toUpperCase()
+      return {
+        id: u.id,
+        seq: String(idx + 1).padStart(2, '0'),
+        name,
+        email: u.email || '',
+        nickname: name,
+        phone: '',
+        gender: '男',
+        role: u.is_staff ? '管理员' : '普通用户',
+        status: '正常',
+        createdAt: (u.date_joined || new Date()).toString().slice(0, 16),
+        avatar,
+      }
+    })
+    users.value = rows
+    filteredUsers.value = [...users.value]
+    currentPage.value = 1
+  } catch (e) {
+    // 无 token 或请求失败则保持空表
+  }
+})
 
 // ───────── Modal 开启 ─────────
 function openAddModal() {

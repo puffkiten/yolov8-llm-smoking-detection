@@ -68,6 +68,8 @@
               </div>
               <p class="time-left" v-if="videoForm.isUploading">正在同步至服务器...</p>
               <p class="time-left" v-else>文件已就绪，等待提交分析</p>
+              <video v-if="videoPreviewUrl && videoForm.file && !videoForm.isUploading" :src="videoPreviewUrl" class="video-preview" controls></video>
+              <p v-else-if="videoPreviewUnsupported && videoForm.file && !videoForm.isUploading" class="preview-note">当前视频格式浏览器无法预览，但仍可上传检测</p>
             </div>
           </div>
         </div>
@@ -128,7 +130,7 @@
               <div class="upload-icon-large small">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b9eff" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
               </div>
-              <div class="progress-info">
+              <div class="progress-info centered">
                 <span class="filename blue">已选择 {{ imgForm.files.length }} 张图片</span>
                 <span class="percent" v-if="imgForm.isUploading">{{ imgForm.uploadProgress }}%</span>
               </div>
@@ -137,6 +139,12 @@
               </div>
               <p class="time-left" v-if="imgForm.isUploading">正在打包上传中...</p>
               <p class="time-left" v-else>文件已就绪，等待提交分析</p>
+              <div v-if="imgPreviewUrls.length === 1" class="preview-single">
+                <img :src="imgPreviewUrls[0]" class="thumb-large" alt="">
+              </div>
+              <div class="preview-grid" v-else-if="imgPreviewUrls.length > 1">
+                <img v-for="u in imgPreviewUrls.slice(0,4)" :key="u" :src="u" class="thumb" alt="">
+              </div>
             </div>
           </div>
         </div>
@@ -166,12 +174,17 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-// import axios from 'axios' // 预留给后端联调
+import axios from 'axios'
+
+const authHeaders = () => {
+  const access = localStorage.getItem('access_token') || ''
+  return access ? { Authorization: `Bearer ${access}` } : {}
+}
 
 // 真实的表单数据结构
 const videoForm = reactive({
   name: '',
-  confidence: 0.75,
+  confidence: 0.5,
   file: null, // 存放真实的 File 对象
   isUploading: false,
   uploadProgress: 0
@@ -179,11 +192,15 @@ const videoForm = reactive({
 
 const imgForm = reactive({
   name: '',
-  confidence: 0.75,
+  confidence: 0.5,
   files: [], // 存放真实的多张图片 File 对象数组
   isUploading: false,
   uploadProgress: 0
 })
+
+const imgPreviewUrls = ref([])
+const videoPreviewUrl = ref('')
+const videoPreviewUnsupported = ref(false)
 
 // 对隐藏的 input 标签的引用
 const videoInputRef = ref(null)
@@ -206,9 +223,21 @@ const handleFileSelect = (event, type) => {
   if (type === 'video') {
     videoForm.file = selectedFiles[0] // 视频单选
     if (!videoForm.name) videoForm.name = videoForm.file.name.split('.')[0] // 自动填充任务名
+    if (videoPreviewUrl.value) URL.revokeObjectURL(videoPreviewUrl.value)
+    videoPreviewUnsupported.value = false
+    const f = videoForm.file
+    const ok = f && (f.type === 'video/mp4' || f.type === 'video/webm' || f.type === 'video/ogg')
+    if (ok) {
+      videoPreviewUrl.value = URL.createObjectURL(f)
+    } else {
+      videoPreviewUrl.value = ''
+      videoPreviewUnsupported.value = true
+    }
   } else {
     imgForm.files = Array.from(selectedFiles) // 图片多选转数组
     if (!imgForm.name) imgForm.name = `批量图片检测_${new Date().getTime()}`
+    imgPreviewUrls.value.forEach((u) => URL.revokeObjectURL(u))
+    imgPreviewUrls.value = imgForm.files.map((f) => URL.createObjectURL(f))
   }
 }
 
@@ -237,11 +266,8 @@ const submitToBackend = async (type) => {
   form.uploadProgress = 0
 
   try {
-    /* // ==========================================
-    // 🚨 真实的 Axios 文件上传代码 (带上传进度)
-    // ==========================================
-    const response = await axios.post('/api/detection/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    const response = await axios.post('http://127.0.0.1:8000/api/detection/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data', ...authHeaders() },
       onUploadProgress: (progressEvent) => {
         const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
         form.uploadProgress = percentCompleted
@@ -249,18 +275,22 @@ const submitToBackend = async (type) => {
     })
     
     if(response.data.code === 200) {
-       ElMessage.success('任务提交成功，正在后台分析')
+       ElMessage.success('任务提交成功，请前往「检测任务」查看结果')
+    } else {
+       ElMessage.info('任务已提交')
     }
-    */
-
-    // 为了防止你现在点击报错，我用一个快速的 Timeout 充当网络请求响应
-    // 等你有后端了，把这几行删掉，解开上面的 axios 注释即可
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    ElMessage.success(`【${type === 'video' ? '视频' : '图片'}】任务已成功提交至后台！`)
     
     // 提交成功后重置表单（可选）
-    if(type === 'video') videoForm.file = null
-    else imgForm.files = []
+    if(type === 'video') {
+      videoForm.file = null
+      if (videoPreviewUrl.value) URL.revokeObjectURL(videoPreviewUrl.value)
+      videoPreviewUrl.value = ''
+      videoPreviewUnsupported.value = false
+    } else {
+      imgForm.files = []
+      imgPreviewUrls.value.forEach((u) => URL.revokeObjectURL(u))
+      imgPreviewUrls.value = []
+    }
 
   } catch (error) {
     ElMessage.error('上传失败，请检查网络或后端接口')
@@ -351,13 +381,21 @@ const submitToBackend = async (type) => {
 .upload-text { font-size: 14px; font-weight: 500; color: #2d3a4a; margin: 0 0 6px 0; }
 .upload-hint { font-size: 12px; color: #9aa5b4; margin: 0; }
 
-.upload-progress-state { width: 80%; margin: 0 auto; text-align: center;}
+.upload-progress-state { width: 100%; max-width: 520px; margin: 0 auto; text-align: center;}
 .progress-info { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; font-weight: 500; }
+.progress-info.centered { justify-content: center; gap: 10px; }
+.progress-info.centered .filename.blue { max-width: 100%; }
 .filename.blue { color: #3b9eff; max-width: 80%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .percent { color: #2d3a4a; }
 .progress-bar-bg { width: 100%; height: 6px; background: #edf0f5; border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
 .progress-bar-fill { height: 100%; background: #3b9eff; transition: width 0.3s ease; }
 .time-left { font-size: 11.5px; color: #9aa5b4; margin: 0; }
+.preview-single { display: flex; justify-content: center; margin-top: 12px; }
+.thumb-large { width: 220px; height: 140px; object-fit: cover; border-radius: 12px; border: 1px solid #e8ecf2; background: #fff; }
+.preview-grid { display: grid; grid-template-columns: repeat(4, 70px); justify-content: center; gap: 8px; margin-top: 12px; }
+.thumb { width: 70px; height: 70px; object-fit: cover; border-radius: 10px; border: 1px solid #e8ecf2; background: #fff; }
+.video-preview { width: 100%; margin-top: 12px; border-radius: 10px; border: 1px solid #e8ecf2; max-height: 220px; background: #000; }
+.preview-note { margin-top: 10px; font-size: 12px; color: #6b7a90; }
 
 .btn-submit {
   width: 100%; height: 48px; border-radius: 8px; background: #3b9eff; color: white; border: none; font-size: 14.5px; font-weight: 600; cursor: pointer; font-family: inherit;
