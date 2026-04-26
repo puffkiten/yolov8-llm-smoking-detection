@@ -98,7 +98,7 @@ onMounted(async () => {
     return
   }
   try {
-    const resp = await axios.get(`http://127.0.0.1:8000/api/share/report`, { params: { id: token } })
+    const resp = await axios.get('/api/share/report', { params: { id: token } })
     const d = resp.data || {}
     sourceUrl.value = d.source_url || ''
     detections.value = Array.isArray(d.detections) ? d.detections : []

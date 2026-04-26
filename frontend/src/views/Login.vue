@@ -6,17 +6,49 @@
       <canvas ref="particleCanvas" class="bg-canvas"></canvas>
     </div>
 
-    <!-- 右侧文案（作为背景的一部分，不占布局，不挡交互） -->
-    <div class="bg-copy" aria-hidden="true">
-      <div class="bg-badge">YOLOv8</div>
-      <h2 class="bg-title">Real‑time vision inference</h2>
-      <p class="bg-sub">
-        Streaming • Multi‑camera • Low latency
-      </p>
-      <div class="bg-tags">
-        <span class="bg-tag">Detection</span>
-        <span class="bg-tag">Tracking</span>
-        <span class="bg-tag">Deploy</span>
+    <!-- ══════════ RIGHT PANEL ══════════ -->
+    <div class="right-panel">
+      <div class="right-content">
+        <h2 class="bg-title">AI驱动的<br/>吸烟检测与<span class="title-highlight">智能预警</span></h2>
+        <p class="bg-sub">
+          基于先进的计算机视觉与深度学习技术，实时识别吸烟行为，<br/>
+          多场景覆盖，助力打造健康无烟环境。
+        </p>
+        <div class="bg-tags">
+          <span class="bg-tag">⚡ 实时检测</span>
+          <span class="bg-tag">📹 多路摄像头</span>
+          <span class="bg-tag">⏱ 低延迟</span>
+          <span class="bg-tag">🔔 智能告警</span>
+        </div>
+        <div class="metric-row">
+          <div class="metric-card">
+            <div class="metric-icon">🎯</div>
+            <div class="metric-info">
+              <div class="metric-label">检测准确率</div>
+              <div class="metric-value">96.8<span class="metric-unit">%</span></div>
+              <div class="metric-desc">行业领先水平</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">⏱</div>
+            <div class="metric-info">
+              <div class="metric-label">平均响应</div>
+              <div class="metric-value">0.8<span class="metric-unit">s</span></div>
+              <div class="metric-desc">毫秒级响应速度</div>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-icon">📹</div>
+            <div class="metric-info">
+              <div class="metric-label">支持设备</div>
+              <div class="metric-value">32<span class="metric-unit">路</span></div>
+              <div class="metric-desc">单系统最大接入</div>
+            </div>
+          </div>
+        </div>
+        <div class="bg-footer-row">
+          <span class="bg-footnote">✅ 已为 1000+ 企业提供智能安防解决方案</span>
+        </div>
       </div>
     </div>
 
@@ -35,8 +67,8 @@
       <!-- Form — 垂直居中 -->
       <div class="form-center">
         <div class="form-header">
-          <h1 class="title">Welcome to Aero</h1>
-          <p class="subtitle">AI 驱动环境监测，为您打造健康无烟空间</p>
+          <h1 class="title">欢迎回来</h1>
+          <p class="subtitle">登录 Aero Smart，开启智能安防新体验</p>
         </div>
 
         <!-- Email -->
@@ -49,7 +81,7 @@
                 <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
               </svg>
             </span>
-            <input v-model="form.email" type="email" class="f-input" placeholder="admin@aero.com"/>
+            <input v-model="form.email" type="email" class="f-input" placeholder="请输入电子邮箱"/>
           </div>
         </div>
 
@@ -66,7 +98,7 @@
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
             </span>
-            <input v-model="form.password" :type="showPwd ? 'text' : 'password'" class="f-input" placeholder="请输入登录密码"/>
+            <input v-model="form.password" :type="showPwd ? 'text' : 'password'" class="f-input" placeholder="请输入密码"/>
             <span class="ico-right" @click="showPwd = !showPwd">
               <svg v-if="showPwd" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
@@ -116,15 +148,16 @@
 
       <!-- Footer -->
       <div class="left-footer">
-        <div class="badge">
-          <div class="avatars">
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=a1" class="av" alt=""/>
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=a2" class="av" alt=""/>
-            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=a3" class="av" alt=""/>
+        <div class="trusted-strip" aria-label="Trusted by leading companies">
+          <span class="trusted-strip-label">Trusted by</span>
+          <div class="trusted-strip-line" aria-hidden="true"></div>
+          <div class="trusted-logos-inline" aria-label="Trusted company logos">
+            <img class="trusted-logo-inline starbucks-inline" src="/logos/starbucks.svg" alt="Starbucks" />
+            <img class="trusted-logo-inline bosch-inline" src="/logos/bosch.svg" alt="Bosch" />
+            <img class="trusted-logo-inline huawei-inline" src="/logos/huawei.svg" alt="Huawei" />
           </div>
-          <span class="badge-txt">已有 1000+ 企业接入系统</span>
         </div>
-        <p class="copy">© 2026 Aero Smart Monitoring System. 全球领先的 AI 烟雾监测技术。</p>
+        <p class="copy">© 2026 Aero Smart Monitoring System. 企业级 AI 吸烟检测与预警平台。</p>
       </div>
     </div>
 
@@ -137,6 +170,7 @@ import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { googleTokenLogin } from 'vue3-google-login' // 👈 引入 Google 登录方法
 import { ElMessage } from 'element-plus' // 👈 补上 ElMessage
+import { buildApiUrl } from '@/utils/http'
 
 const form = reactive({ email: '', password: '', remember: false })
 const showPwd = ref(false)
@@ -153,7 +187,7 @@ const handleGoogleLogin = () => {
   googleTokenLogin().then((response) => {
     // 获取到 Google 的 access_token 后，直接发给后端
     // 注意：后端 callback 需要兼容 access_token 参数
-    const url = `http://127.0.0.1:8000/api/auth/google/callback?access_token=${response.access_token}`
+    const url = buildApiUrl(`/api/auth/google/callback?access_token=${response.access_token}`)
     
     // 我们手动发起 GET 请求，后端会返回 302
     // 但因为是 API 调用，我们捕获它
@@ -197,7 +231,7 @@ const handleLogin = async () => {
 
   try {
     // 1. 发送请求给 Django 后端
-    const response = await axios.post('http://127.0.0.1:8000/api/login/', {
+    const response = await axios.post('/api/login/', {
       username: form.email, // 使用邮箱字段登录
       password: form.password
     });
@@ -310,16 +344,14 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
 /* ── PAGE ── */
 .login-page {
   display: flex;
+  flex-direction: row-reverse;
   min-height: 100vh;
-  /* 让整页背景统一，避免左右割裂 */
   background: radial-gradient(1100px 520px at 18% 18%, rgba(59, 158, 255, .16), transparent 62%),
               radial-gradient(900px 520px at 86% 26%, rgba(124, 92, 232, .12), transparent 62%),
               #edf5ee;
-  gap: 28px;
   position: relative;
 }
 
-/* 全屏动态背景 */
 .bg-visual {
   position: fixed;
   inset: 0;
@@ -333,86 +365,26 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
   display: block;
 }
 
-/* 右侧文案（叠在背景上） */
-.bg-copy {
-  position: absolute;
-  right: 56px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 1;
-  pointer-events: none;
-  width: min(520px, 42vw);
-}
-
-.bg-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.55);
-  border: 1px solid rgba(220,228,240,.9);
-  color: #1a2332;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: .2px;
-  margin-bottom: 12px;
-}
-
-.bg-title {
-  margin: 0 0 10px 0;
-  font-size: 40px;
-  line-height: 1.05;
-  letter-spacing: -1.0px;
-  color: #0d1724;
-}
-
-.bg-sub {
-  margin: 0 0 16px 0;
-  font-size: 14px;
-  color: #5a6475;
-  line-height: 1.7;
-}
-
-.bg-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.bg-tag {
-  display: inline-flex;
-  padding: 7px 10px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.55);
-  border: 1px solid rgba(220,228,240,.9);
-  color: #2d3a4a;
-  font-size: 12px;
-  font-weight: 700;
-}
-
 /* ══════════ LEFT PANEL ══════════ */
 .left-panel {
-  /* 固定宽度，约占屏幕的 42% */
-  flex: 0 0 42%;
-  min-width: 440px;
-  max-width: 560px;
+  flex: 0 0 50%;
+  max-width: 50%;
   display: flex;
   flex-direction: column;
-  /* 水平内边距：左右相等，让内容真正居中 */
-  padding: 44px 60px 40px 60px;
+  padding: 44px 24px 40px 72px;
   background: transparent;
   position: relative;
   z-index: 2;
 }
 
-/* Logo */
 .logo {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 10px;
-  /* Logo 与 Welcome 之间留足距离 */
-  margin-bottom: 26px;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto 20px;
 }
 
 .logo-icon {
@@ -425,9 +397,8 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
 
 .logo-text { font-size: 17px; font-weight: 700; color: #111b27; letter-spacing: -.3px; }
 
-/* Form vertically centered */
 .form-center {
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -446,14 +417,13 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
 .form-header { margin-bottom: 30px; }
 
 .title {
-  font-size: 30px; font-weight: 700;
+  font-size: 34px; font-weight: 800;
   color: #0d1724; letter-spacing: -.8px;
   margin-bottom: 8px; line-height: 1.2;
 }
 
-.subtitle { font-size: 14px; color: #6b7a90; }
+.subtitle { font-size: 14px; color: #6b7a90; line-height: 1.65; }
 
-/* Fields */
 .field-group { margin-bottom: 17px; }
 
 .field-label {
@@ -492,7 +462,6 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
 .f-input::placeholder { color: #b8c4d0; }
 .f-input:focus { border-color: #3b9eff; background: rgba(255, 255, 255, 0.92); box-shadow: 0 0 0 4px rgba(59,158,255,.12); }
 
-/* Options row */
 .opt-row {
   display: flex; align-items: center;
   justify-content: space-between;
@@ -520,7 +489,6 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
 .forgot { font-size: 13px; color: #3b9eff; font-weight: 500; text-decoration: none; }
 .forgot:hover { opacity: .75; }
 
-/* Inline form error */
 .form-error {
   margin: -6px 0 14px 0;
   color: #d92d20;
@@ -529,7 +497,6 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
   font-weight: 600;
 }
 
-/* Login button */
 .btn-login {
   width: 100%; height: 48px;
   background: #111b27; color: white; border: none;
@@ -545,12 +512,10 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
 }
 .btn-login:disabled { opacity: .65; cursor: not-allowed; }
 
-/* Divider */
 .divider { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
 .dline   { flex: 1; height: 1px; background: #dde5ee; }
 .dtxt    { font-size: 13px; color: #9aa5b4; }
 
-/* Google */
 .btn-google {
   width: 100%; height: 46px;
   background: white; border: 1.5px solid #dde5ee;
@@ -565,151 +530,239 @@ onUnmounted(() => { if (raf) cancelAnimationFrame(raf); if (cleanup) cleanup() }
 .reg-link { color: #3b9eff; font-weight: 600; text-decoration: none; }
 .reg-link:hover { opacity: .75; }
 
-/* Footer */
-.left-footer { margin-top: 40px; }
-
-.badge {
-  display: inline-flex; align-items: center; gap: 10px;
-  background: rgba(59,158,255,.07);
-  border: 1px solid rgba(59,158,255,.16);
-  border-radius: 50px; padding: 5px 14px 5px 7px;
-  margin-bottom: 12px;
-}
-
-.avatars { display: flex; align-items: center; }
-.av {
-  width: 25px; height: 25px;
-  border-radius: 50%; border: 2px solid white;
-  margin-left: -5px; background: #dde8f4; overflow: hidden;
-}
-.av:first-child { margin-left: 0; }
-.badge-txt { font-size: 12px; color: #3b7dc4; font-weight: 500; }
-.copy      { font-size: 12px; color: #9eaab7; line-height: 1.5; }
-
-
-/* ══════════ RIGHT PANEL ══════════ */
-.right-panel {
-  flex: 1;
+.left-footer {
+  margin-top: 14px;
+  width: 100%;
+  max-width: 440px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 40px 60px 40px 24px;
-  align-items: center;
-  position: relative;
-  overflow: hidden;
-  /* 右侧不做“卡片”，改为干净展示背景 */
-  background:
-    radial-gradient(900px 520px at 18% 20%, rgba(59, 158, 255, .14), transparent 62%),
-    radial-gradient(900px 520px at 86% 26%, rgba(124, 92, 232, .10), transparent 62%);
-}
-
-.p-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  cursor: default;
-  opacity: 0.8;
-}
-
-/* Hero overlay */
-.hero-overlay {
-  position: absolute;
-  inset: 0;
-  padding: 34px 36px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  pointer-events: none;
-  max-width: 720px;
-  width: 100%;
-}
-
-.hero-top { display: flex; justify-content: space-between; align-items: flex-start; }
-
-.hero-badge {
-  display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(220, 228, 240, 0.9);
-  color: #1a2332;
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.2px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.hero-mid { max-width: 92%; }
-.hero-title {
-  margin: 0 0 10px 0;
-  font-size: 36px;
-  line-height: 1.12;
-  letter-spacing: -0.8px;
-  color: #0d1724;
-  text-shadow: none;
-}
-.hero-sub {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.7;
-  color: #5a6475;
-  max-width: 520px;
-}
-
-.hero-bottom {
+.trusted-strip {
+  width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 14px;
 }
 
-.chips {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+.trusted-strip-label {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: #9aa5b4;
 }
 
-.chip {
-  padding: 7px 10px;
+.trusted-strip-line {
+  width: 28px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(154, 165, 180, 0), rgba(154, 165, 180, .75));
+  flex-shrink: 0;
+}
+
+.trusted-logos-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.trusted-logo-inline {
+  height: 22px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+  opacity: .6;
+  filter: grayscale(1) contrast(.88);
+  transition: opacity .2s ease, filter .2s ease, transform .2s ease;
+}
+
+.trusted-logo-inline:hover {
+  opacity: .88;
+  filter: grayscale(1) contrast(1);
+  transform: translateY(-1px);
+}
+
+.starbucks-inline {
+  height: 22px;
+}
+
+.bosch-inline {
+  height: 18px;
+}
+
+.huawei-inline {
+  height: 20px;
+}
+
+.copy      { font-size: 12px; color: #9eaab7; line-height: 1.5; text-align: center; }
+
+/* ══════════ RIGHT PANEL ══════════ */
+.right-panel {
+  flex: 0 0 52%;
+  max-width: 52%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 60px 64px 60px 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.right-content {
+  max-width: 660px;
+  width: 100%;
+}
+
+.bg-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 16px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(220, 228, 240, 0.9);
+  background: rgba(255,255,255,.55);
+  border: 1px solid rgba(220,228,240,.9);
+  color: #1a2332;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .2px;
+  margin-bottom: 20px;
+}
+
+.bg-title {
+  margin: 0 0 24px 0;
+  font-size: 38px;
+  line-height: 1.28;
+  letter-spacing: -0.8px;
+  color: #0d1724;
+  font-weight: 800;
+  max-width: 620px;
+}
+
+.title-highlight {
+  color: #3b9eff;
+}
+
+.bg-sub {
+  margin: 0 0 30px 0;
+  font-size: 15px;
+  color: #5a6475;
+  line-height: 2;
+  max-width: 600px;
+}
+
+.bg-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 34px;
+}
+
+.bg-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.55);
+  border: 1px solid rgba(220,228,240,.9);
   color: #2d3a4a;
+  font-size: 13px;
+  font-weight: 600;
+  gap: 6px;
+}
+
+.metric-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.metric-card {
+  background: rgba(255,255,255,.62);
+  border: 1px solid rgba(220,228,240,.9);
+  border-radius: 16px;
+  padding: 20px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.metric-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(59, 158, 255, .08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.metric-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.metric-label {
   font-size: 12px;
+  color: #6b7a90;
+  margin-bottom: 4px;
   font-weight: 600;
 }
 
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 12px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(220, 228, 240, 0.9);
-}
-.status-text { color: #1a2332; font-size: 12px; font-weight: 800; }
-
-/* 绿色呼吸点 */
-.pulse-dot {
-  display: block; width: 10px; height: 10px;
-  border-radius: 50%; background: #4eff91;
-  animation: pulse 1.8s ease-out infinite;
-  flex-shrink: 0;
-}
-@keyframes pulse {
-  0%   { box-shadow: 0 0 0 0   rgba(78,255,145,.7); }
-  70%  { box-shadow: 0 0 0 9px rgba(78,255,145,0);  }
-  100% { box-shadow: 0 0 0 0   rgba(78,255,145,0);  }
+.metric-value {
+  font-size: 32px;
+  line-height: 1.1;
+  color: #0d1724;
+  font-weight: 800;
+  letter-spacing: -0.6px;
 }
 
-/* 删除旧的 feature/quote 样式（改为统一 hero） */
+.metric-unit {
+  font-size: 18px;
+  font-weight: 700;
+  color: #3b9eff;
+}
+
+.metric-desc {
+  font-size: 11px;
+  color: #9aa5b4;
+  margin-top: 3px;
+  font-weight: 500;
+}
+
+.bg-footer-row {
+  margin-top: 20px;
+}
+
+.bg-footnote {
+  font-size: 13px;
+  color: #5f6e82;
+  font-weight: 600;
+}
 
 /* ── RESPONSIVE ── */
+@media (min-width: 1280px) {
+  .bg-title {
+    font-size: 40px;
+    max-width: 680px;
+  }
+}
+
 @media (max-width: 960px) {
   .right-panel { display: none; }
   .left-panel  { flex: 1; max-width: 100%; min-width: 0; padding: 36px 32px; }
+  .trusted-by-card {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }
 </style>

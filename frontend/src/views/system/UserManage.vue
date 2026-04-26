@@ -32,8 +32,8 @@
           <input v-model="search.name" placeholder="输入用户名关键字" />
         </div>
         <div class="field-group">
-          <label>手机号</label>
-          <input v-model="search.phone" placeholder="输入完整手机号" />
+          <label>邮箱</label>
+          <input v-model="search.email" placeholder="输入邮箱关键字" />
         </div>
         <div class="field-group">
           <label>用户类型</label>
@@ -78,22 +78,21 @@
         </div>
       </div>
 
-      <table>
+      <div class="table-scroll">
+        <table>
         <thead>
           <tr>
             <th v-if="isAdmin" style="width:44px;">
               <input type="checkbox" :checked="isAllPageSelected" @change="toggleSelectAllPage($event)" />
             </th>
-            <th>序号</th>
-            <th>用户信息</th>
-            <th>昵称</th>
-            <th>手机号</th>
-            <th>性别</th>
-            <th>用户类型</th>
-            <th>状态</th>
-            <th>创建时间</th>
-            <!-- 仅管理员显示操作列 -->
-            <th v-if="isAdmin">操作</th>
+            <th class="col-seq">序号</th>
+            <th class="col-user">用户信息</th>
+            <th class="col-nickname">昵称</th>
+            <th class="col-email">邮箱</th>
+            <th class="col-role">用户类型</th>
+            <th class="col-status">状态</th>
+            <th class="col-created">创建时间</th>
+            <th v-if="isAdmin" class="col-actions">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -120,8 +119,7 @@
               </div>
             </td>
             <td>{{ user.nickname }}</td>
-            <td>{{ user.phone }}</td>
-            <td>{{ user.gender }}</td>
+            <td>{{ user.email }}</td>
             <td>
               <span class="role-tag" :class="user.role === '管理员' ? 'admin' : 'normal'">
                 {{ user.role }}
@@ -171,6 +169,7 @@
           </tr>
         </tbody>
       </table>
+      </div>
 
       <div class="pagination">
         <span class="page-info">
@@ -247,19 +246,8 @@
                   <input v-model="form.nickname" placeholder="请输入昵称" />
                 </div>
                 <div class="form-field">
-                  <label><span class="required">*</span>手机号</label>
-                  <input v-model="form.phone" placeholder="请输入手机号" />
-                </div>
-                <div class="form-field">
-                  <label>邮箱</label>
+                  <label><span class="required">*</span>邮箱</label>
                   <input v-model="form.email" placeholder="请输入邮箱" />
-                </div>
-                <div class="form-field">
-                  <label>性别</label>
-                  <select v-model="form.gender">
-                    <option>男</option>
-                    <option>女</option>
-                  </select>
                 </div>
                 <div class="form-field">
                   <label><span class="required">*</span>用户类型</label>
@@ -378,53 +366,148 @@
 import { ref, reactive, computed, inject, onMounted } from 'vue'
 import axios from 'axios'
 
-// ───────── 注入当前登录用户 ─────────
-// 由 Layout.vue 通过 provide('currentUser', ...) 注入
-// role: 'admin' | 'user'
 const currentUser = inject('currentUser', { id: 0, name: '', email: '', role: 'user' })
 const isAdmin = computed(() => currentUser.role === 'admin')
-
-// ───────── 初始数据 ─────────
-const initialUsers = []
 
 const AVATAR_COLORS = { A: '#4A90D9', B: '#E8526A', C: '#6B7C8F', D: '#D4A27A', E: '#5BAD8F' }
 const avatarColor = (code) => AVATAR_COLORS[code] || '#888'
 
-// ───────── 状态 ─────────
-const users = ref(initialUsers.map(u => ({ ...u })))
-
-const search = reactive({ name: '', phone: '', role: '全部角色', status: '全部状态' })
-const filteredUsers = ref([...users.value])
+const users = ref([])
+const search = reactive({ name: '', email: '', role: '全部角色', status: '全部状态' })
+const filteredUsers = ref([])
 
 const pageSize = ref(10)
 const currentPage = ref(1)
+const selectedIds = ref([])
+const showBatchMenu = ref(false)
+const modal = reactive({ type: '', user: null })
+const form = reactive({ name: '', nickname: '', email: '', role: '普通用户', status: '正常', password: '' })
+const toast = reactive({ show: false, msg: '', type: 'success' })
 
-const totalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredUsers.value.length / pageSize.value))
-)
-
+const totalPages = computed(() => Math.max(1, Math.ceil(filteredUsers.value.length / pageSize.value)))
 const pagedUsers = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
   return filteredUsers.value.slice(start, start + pageSize.value)
 })
 
-// ───────── 批量操作：选择状态 ─────────
-const selectedIds = ref([])
-const showBatchMenu = ref(false)
+const disabledCount = computed(() => users.value.filter(u => u.status === '禁用').length)
+const activeCount = computed(() => users.value.filter(u => u.status === '正常').length)
+const monthlyNewCount = computed(() => {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  return users.value.filter((u) => {
+    const d = new Date(u.createdAtRaw || u.createdAt)
+    return d.getFullYear() === year && (d.getMonth() + 1) === month
+  }).length
+})
 
-const isSelectable = (user) => {
-  // 规则同单行操作：不能操作自己；不能操作其他管理员
-  if (user.id === currentUser.id) return false
-  if (user.role === '管理员') return false
-  return true
-}
-
+const isSelectable = (user) => user.id !== currentUser.id
 const selectablePageUsers = computed(() => pagedUsers.value.filter(isSelectable))
-
 const isAllPageSelected = computed(() => {
   const ids = selectablePageUsers.value.map(u => u.id)
   return ids.length > 0 && ids.every(id => selectedIds.value.includes(id))
 })
+
+let toastTimer = null
+function showToast(msg, type = 'success') {
+  clearTimeout(toastTimer)
+  toast.msg = msg
+  toast.type = type
+  toast.show = true
+  toastTimer = setTimeout(() => { toast.show = false }, 2500)
+}
+
+const authHeaders = () => {
+  const access = localStorage.getItem('access_token') || ''
+  return access ? { Authorization: `Bearer ${access}` } : {}
+}
+
+const formatDate = (value) => {
+  if (!value) return ''
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value)
+  return d.toLocaleString('zh-CN', { hour12: false })
+}
+
+const mapUser = (u, idx) => {
+  const name = u.username || (u.email?.split('@')[0] || '用户')
+  const avatar = (name[0] || 'A').toUpperCase()
+  return {
+    id: u.id,
+    seq: String(idx + 1).padStart(2, '0'),
+    name,
+    nickname: name,
+    email: u.email || '',
+    role: u.is_staff ? '管理员' : '普通用户',
+    status: u.is_active === false ? '禁用' : '正常',
+    createdAt: formatDate(u.date_joined),
+    createdAtRaw: u.date_joined,
+    avatar,
+  }
+}
+
+const reindexUsers = (items) => items.map((u, idx) => ({ ...u, seq: String(idx + 1).padStart(2, '0') }))
+
+async function fetchUsers() {
+  const resp = await axios.get('/api/users', { headers: authHeaders() })
+  users.value = reindexUsers((resp.data?.results || []).map(mapUser))
+  handleSearch()
+}
+
+function closeModal() {
+  modal.type = ''
+  modal.user = null
+}
+
+function resetForm() {
+  Object.assign(form, { name: '', nickname: '', email: '', role: '普通用户', status: '正常', password: '' })
+}
+
+function handleSearch() {
+  filteredUsers.value = users.value.filter((u) => {
+    if (search.name && !u.name.includes(search.name)) return false
+    if (search.email && !u.email.includes(search.email)) return false
+    if (search.role !== '全部角色' && u.role !== search.role) return false
+    if (search.status !== '全部状态' && u.status !== search.status) return false
+    return true
+  })
+  currentPage.value = 1
+}
+
+function handleReset() {
+  Object.assign(search, { name: '', email: '', role: '全部角色', status: '全部状态' })
+  filteredUsers.value = [...users.value]
+  currentPage.value = 1
+}
+
+function openAddModal() {
+  resetForm()
+  modal.type = 'add'
+}
+
+function openEditModal(user) {
+  Object.assign(form, {
+    name: user.name,
+    nickname: user.nickname,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    password: '',
+  })
+  modal.type = 'edit'
+  modal.user = user
+}
+
+function openDeleteModal(user) {
+  modal.type = 'delete'
+  modal.user = user
+}
+
+function openToggleModal(user) {
+  modal.type = 'toggle'
+  modal.user = user
+}
 
 const toggleSelect = (user) => {
   if (!isSelectable(user)) return
@@ -450,221 +533,135 @@ const toggleBatchMenu = () => {
   showBatchMenu.value = !showBatchMenu.value
 }
 
-const modal = reactive({ type: '', user: null })
-const form = reactive({ name: '', nickname: '', phone: '', email: '', gender: '男', role: '普通用户', status: '正常', password: '' })
-
-const toast = reactive({ show: false, msg: '', type: 'success' })
-
-// ───────── 计算属性 ─────────
-const disabledCount = computed(() => users.value.filter(u => u.status === '禁用').length)
-const activeCount = computed(() => users.value.filter(u => u.status === '正常').length)
-const monthlyNewCount = computed(() => {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
-  return users.value.filter(u => {
-    const d = new Date(u.createdAt)
-    return d.getFullYear() === year && (d.getMonth() + 1) === month
-  }).length
-})
-
-// ───────── 工具函数 ─────────
-let toastTimer = null
-function showToast(msg, type = 'success') {
-  clearTimeout(toastTimer)
-  toast.msg = msg
-  toast.type = type
-  toast.show = true
-  toastTimer = setTimeout(() => { toast.show = false }, 2500)
-}
-
-function closeModal() { modal.type = ''; modal.user = null }
-
-function resetForm() {
-  Object.assign(form, { name: '', nickname: '', phone: '', email: '', gender: '男', role: '普通用户', status: '正常', password: '' })
-}
-
-// ───────── 搜索 ─────────
-function handleSearch() {
-  filteredUsers.value = users.value.filter(u => {
-    if (search.name && !u.name.includes(search.name)) return false
-    if (search.phone && !u.phone.replace(/-/g, '').includes(search.phone)) return false
-    if (search.role !== '全部角色' && u.role !== search.role) return false
-    if (search.status !== '全部状态' && u.status !== search.status) return false
-    return true
-  })
-  currentPage.value = 1
-}
-
-function handleReset() {
-  Object.assign(search, { name: '', phone: '', role: '全部角色', status: '全部状态' })
-  filteredUsers.value = [...users.value]
-  currentPage.value = 1
-}
-
-onMounted(async () => {
-  const access = localStorage.getItem('access_token') || ''
-  if (!access) return
-  try {
-    const resp = await axios.get('http://127.0.0.1:8000/api/users', {
-      headers: { Authorization: `Bearer ${access}` }
-    })
-    const rows = (resp.data?.results || []).map((u, idx) => {
-      const name = u.username || (u.email?.split('@')[0] || '用户')
-      const avatar = (name[0] || 'A').toUpperCase()
-      return {
-        id: u.id,
-        seq: String(idx + 1).padStart(2, '0'),
-        name,
-        email: u.email || '',
-        nickname: name,
-        phone: '',
-        gender: '男',
-        role: u.is_staff ? '管理员' : '普通用户',
-        status: '正常',
-        createdAt: (u.date_joined || new Date()).toString().slice(0, 16),
-        avatar,
-      }
-    })
-    users.value = rows
-    filteredUsers.value = [...users.value]
-    currentPage.value = 1
-  } catch (e) {
-    // 无 token 或请求失败则保持空表
+async function handleFormSave() {
+  if (!form.name.trim() || !form.email.trim()) {
+    showToast('请填写用户名和邮箱', 'error')
+    return
   }
-})
-
-// ───────── Modal 开启 ─────────
-function openAddModal() {
-  resetForm()
-  modal.type = 'add'
-}
-
-function openEditModal(user) {
-  Object.assign(form, { ...user })
-  modal.user = user
-  modal.type = 'edit'
-}
-
-function openDeleteModal(user) {
-  modal.user = user
-  modal.type = 'delete'
-}
-
-function openToggleModal(user) {
-  modal.user = user
-  modal.type = 'toggle'
-}
-
-// ───────── 表单保存 ─────────
-function handleFormSave() {
-  if (!form.name || !form.phone) {
-    showToast('请填写必填项', 'error')
+  if (modal.type === 'add' && !form.password.trim()) {
+    showToast('请填写初始密码', 'error')
     return
   }
 
-  if (modal.type === 'add') {
-    const newUser = {
-      ...form,
-      id: Date.now(),
-      seq: String(users.value.length + 1).padStart(2, '0'),
-      createdAt: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-').slice(0, 16),
-      avatar: (form.name[0] + (form.name[1] || '')).toUpperCase(),
+  const payload = {
+    username: form.name.trim(),
+    email: form.email.trim(),
+    is_staff: form.role === '管理员',
+    is_active: form.status === '正常',
+  }
+  if (form.password.trim()) payload.password = form.password.trim()
+
+  try {
+    if (modal.type === 'add') {
+      await axios.post('/api/users/create', payload, { headers: authHeaders() })
+      showToast(`用户 ${form.name} 新增成功`)
+    } else if (modal.type === 'edit' && modal.user?.id) {
+      await axios.patch(`/api/users/${modal.user.id}`, payload, { headers: authHeaders() })
+      showToast(`用户 ${form.name} 更新成功`)
     }
-    users.value.push(newUser)
-    showToast('用户新增成功')
-  } else {
-    const idx = users.value.findIndex(u => u.id === modal.user.id)
-    if (idx !== -1) Object.assign(users.value[idx], { ...form })
-    showToast('用户信息已更新')
+    closeModal()
+    await fetchUsers()
+  } catch (error) {
+    showToast(error?.response?.data?.detail || '保存失败', 'error')
   }
+}
 
-  filteredUsers.value = [...users.value]
-  if (currentPage.value > totalPages.value) {
-    currentPage.value = totalPages.value
+async function handleDelete() {
+  if (!modal.user?.id) return
+  try {
+    await axios.delete(`/api/users/${modal.user.id}/delete`, { headers: authHeaders() })
+    showToast(`用户 ${modal.user.name} 已删除`)
+    closeModal()
+    selectedIds.value = selectedIds.value.filter(id => id !== modal.user.id)
+    await fetchUsers()
+  } catch (error) {
+    showToast(error?.response?.data?.detail || '删除失败', 'error')
   }
-  closeModal()
 }
 
-// ───────── 删除 ─────────
-function handleDelete() {
-  users.value = users.value.filter(u => u.id !== modal.user.id)
-  filteredUsers.value = [...users.value]
-  if (currentPage.value > totalPages.value) {
-    currentPage.value = totalPages.value
+async function handleToggle() {
+  if (!modal.user?.id) return
+  const nextActive = modal.user.status !== '正常'
+  try {
+    await axios.patch(`/api/users/${modal.user.id}`, { is_active: nextActive }, { headers: authHeaders() })
+    showToast(`用户 ${modal.user.name} 已${nextActive ? '启用' : '禁用'}`)
+    closeModal()
+    await fetchUsers()
+  } catch (error) {
+    showToast(error?.response?.data?.detail || '状态更新失败', 'error')
   }
-  showToast('用户已删除', 'error')
-  closeModal()
-}
-
-// ───────── 禁用 / 启用 ─────────
-function handleToggle() {
-  const idx = users.value.findIndex(u => u.id === modal.user.id)
-  if (idx !== -1) {
-    const wasNormal = users.value[idx].status === '正常'
-    users.value[idx].status = wasNormal ? '禁用' : '正常'
-    showToast(wasNormal ? '用户已禁用' : '用户已启用')
-  }
-  filteredUsers.value = [...users.value]
-  if (currentPage.value > totalPages.value) {
-    currentPage.value = totalPages.value
-  }
-  closeModal()
-}
-
-// ───────── 导出（占位） ─────────
-function handleExport() {
-  showToast('数据导出中…')
-}
-
-// ───────── 批量操作：动作 ─────────
-function applyBatchStatus(nextStatus) {
-  const set = new Set(selectedIds.value)
-  users.value = users.value.map(u => {
-    if (!set.has(u.id)) return u
-    if (!isSelectable(u)) return u
-    return { ...u, status: nextStatus }
-  })
-  filteredUsers.value = [...users.value]
-}
-
-function batchEnable() {
-  applyBatchStatus('正常')
-  showToast(`已启用 ${selectedIds.value.length} 个用户`)
-  showBatchMenu.value = false
-}
-
-function batchDisable() {
-  applyBatchStatus('禁用')
-  showToast(`已禁用 ${selectedIds.value.length} 个用户`, 'error')
-  showBatchMenu.value = false
 }
 
 function batchDelete() {
-  const count = selectedIds.value.length
-  if (count === 0) return
-  modal.type = 'batchDelete'
-  modal.user = { count }
   showBatchMenu.value = false
+  modal.type = 'batchDelete'
+  modal.user = { count: selectedIds.value.length }
 }
 
-function confirmBatchDelete() {
-  const set = new Set(selectedIds.value)
-  users.value = users.value.filter(u => !set.has(u.id) || !isSelectable(u))
-  filteredUsers.value = [...users.value]
-  selectedIds.value = []
-  if (currentPage.value > totalPages.value) currentPage.value = totalPages.value
-  showToast('批量删除完成', 'error')
-  closeModal()
+async function confirmBatchDelete() {
+  const ids = [...selectedIds.value]
+  try {
+    await Promise.all(ids.map(id => axios.delete(`/api/users/${id}/delete`, { headers: authHeaders() })))
+    showToast(`已删除 ${ids.length} 个用户`)
+    selectedIds.value = []
+    closeModal()
+    await fetchUsers()
+  } catch (error) {
+    showToast(error?.response?.data?.detail || '批量删除失败', 'error')
+  }
 }
+
+async function batchSetActive(isActive) {
+  const ids = [...selectedIds.value]
+  try {
+    await Promise.all(ids.map(id => axios.patch(`/api/users/${id}`, { is_active: isActive }, { headers: authHeaders() })))
+    showToast(`已${isActive ? '启用' : '禁用'} ${ids.length} 个用户`)
+    selectedIds.value = []
+    showBatchMenu.value = false
+    await fetchUsers()
+  } catch (error) {
+    showToast(error?.response?.data?.detail || '批量操作失败', 'error')
+  }
+}
+
+function batchEnable() {
+  batchSetActive(true)
+}
+
+function batchDisable() {
+  batchSetActive(false)
+}
+
+function handleExport() {
+  const rows = [['序号', '用户名', '邮箱', '角色', '状态', '创建时间']]
+  filteredUsers.value.forEach((u) => {
+    rows.push([u.seq, u.name, u.email, u.role, u.status, u.createdAt])
+  })
+  const csv = rows.map((r) => r.map((v) => `"${String(v ?? '').replaceAll('"', '""')}"`).join(',')).join('\n')
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `users_${Date.now()}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+onMounted(async () => {
+  try {
+    await fetchUsers()
+  } catch (error) {
+    showToast(error?.response?.data?.detail || '加载用户失败', 'error')
+  }
+})
 </script>
 
 <style scoped>
 /* ── 基础 ── */
 .page {
-  font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
   color: #1a1a1a;
-  padding: 28px 32px;
+  padding: 24px 28px;
   min-height: 100vh;
   background: #f5f6fa;
   box-sizing: border-box;
@@ -808,14 +805,19 @@ function confirmBatchDelete() {
 
 /* ── Table ── */
 .table-card { overflow: hidden; }
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
 .table-header {
-  padding: 16px 24px;
+  padding: 14px 18px;
   border-bottom: 1px solid #f0f0f0;
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.table-title { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; }
+.table-title { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14px; }
 .title-bar { width: 4px; height: 18px; background: #1677ff; border-radius: 2px; }
 
 .batch-wrap { position: relative; }
@@ -846,30 +848,48 @@ function confirmBatchDelete() {
 .batch-item.danger { color: #dc2626; }
 .batch-item.danger:hover { background: rgba(220,38,38,.10); }
 
-table { width: 100%; border-collapse: collapse; }
+table {
+  width: 100%;
+  min-width: 1120px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
 thead tr { background: #fafafa; }
 th {
-  padding: 12px 16px;
+  padding: 10px 12px;
   text-align: left;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: #6b7280;
   border-bottom: 1px solid #f0f0f0;
   white-space: nowrap;
 }
-td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #f5f5f5; }
+td {
+  padding: 12px 12px;
+  font-size: 13px;
+  border-bottom: 1px solid #f5f5f5;
+  vertical-align: middle;
+}
+.col-seq { width: 56px; }
+.col-user { width: 230px; }
+.col-nickname { width: 120px; }
+.col-email { width: 220px; }
+.col-role { width: 110px; }
+.col-status { width: 90px; }
+.col-created { width: 155px; }
+.col-actions { width: 210px; }
 tbody tr { transition: background .15s; }
 tbody tr:hover { background: #fafcff; }
 tbody tr:last-child td { border-bottom: none; }
 
-.seq { color: #6b7280; }
-.date { font-size: 13px; color: #6b7280; white-space: nowrap; }
+.seq { color: #6b7280; font-size: 12px; }
+.date { font-size: 12px; color: #6b7280; white-space: nowrap; }
 
-.user-info { display: flex; align-items: center; gap: 10px; }
+.user-info { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .avatar {
-  width: 36px; height: 36px; border-radius: 50%;
+  width: 34px; height: 34px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 12px; font-weight: 600;
+  color: #fff; font-size: 11px; font-weight: 600;
   flex-shrink: 0; position: relative;
 }
 .avatar .dot {
@@ -879,30 +899,49 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .dot-active   { background: #22c55e; }
 .dot-disabled { background: #9ca3af; }
-.user-name  { font-weight: 600; font-size: 14px; }
-.user-email { font-size: 12px; color: #9ca3af; }
+.user-name  {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.user-email {
+  font-size: 11px;
+  color: #9ca3af;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 .role-tag {
-  padding: 3px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 10px;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
+  white-space: nowrap;
+  word-break: keep-all;
+  line-height: 1.2;
+  min-width: 56px;
 }
 .role-tag.admin  { background: #1677ff; color: #fff; }
 .role-tag.normal { border: 1px solid #d1d5db; color: #374151; }
 
-.status-tag { font-size: 13px; }
+.status-tag { font-size: 12px; white-space: nowrap; }
 .status-tag.active   { color: #374151; }
 .status-tag.disabled { color: #9ca3af; }
 
 /* ── Table Actions ── */
-.actions { white-space: nowrap; }
+.actions { white-space: nowrap; font-size: 0; }
 .action-btn {
   background: none;
   border: none;
-  font-size: 13px;
+  font-size: 12px;
   cursor: pointer;
-  padding: 0 6px;
+  padding: 0 4px;
   transition: opacity .2s;
 }
 .action-btn:hover { opacity: .7; }
@@ -910,11 +949,11 @@ tbody tr:last-child td { border-bottom: none; }
 .action-btn.ban    { color: #f59e0b; }
 .action-btn.enable { color: #22c55e; }
 .action-btn.delete { color: #ef4444; }
-.divider { color: #e5e7eb; padding: 0 2px; }
+.divider { color: #e5e7eb; padding: 0 2px; font-size: 12px; }
 /* 自己行的禁用/删除：置灰不可点 */
 .action-disabled {
-  font-size: 13px;
-  padding: 0 6px;
+  font-size: 12px;
+  padding: 0 4px;
   color: #d1d5db;
   cursor: not-allowed;
   user-select: none;
@@ -922,20 +961,20 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* ── Pagination ── */
 .pagination {
-  padding: 14px 24px;
+  padding: 12px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-top: 1px solid #f0f0f0;
 }
-.page-info { font-size: 13px; color: #6b7280; }
+.page-info { font-size: 12px; color: #6b7280; }
 .page-btns { display: flex; gap: 6px; }
 .page-btn {
-  padding: 5px 12px;
+  padding: 4px 10px;
   border: 1px solid #e5e7eb;
   border-radius: 5px;
   background: #fff;
-  font-size: 13px;
+  font-size: 12px;
   color: #374151;
   cursor: pointer;
   transition: all .2s;

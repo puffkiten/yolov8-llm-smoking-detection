@@ -28,7 +28,7 @@
 
       <div class="header">
         <h1 class="title">Create your account</h1>
-        <p class="subtitle">注册功能前端已就绪，后续接入后端即可完成真实注册。</p>
+        <p class="subtitle"></p>
       </div>
 
       <div class="field-group">
@@ -137,7 +137,7 @@ const handleRegister = async () => {
   if (form.password !== form.password2) return ElMessage.warning('两次输入的密码不一致')
 
   try {
-    await axios.post('http://127.0.0.1:8000/api/auth/register', {
+    await axios.post('/api/auth/register', {
       email: form.email,
       username: form.name,
       password: form.password,

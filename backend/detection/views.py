@@ -14,21 +14,220 @@ from django.core.files.storage import FileSystemStorage
 from django.core.files.base import ContentFile
 from django.utils import timezone
 from django.db import close_old_connections
-from rest_framework import serializers
+from rest_framework import serializers, viewsets
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from ultralytics import YOLO
 from ai_core.llm_agent import analyze_smoking
-from .models import DetectionTask, SmokingRecord, Camera, ShareLink
+from .models import DetectionTask, SmokingRecord, Camera, ShareLink, AIModel, ActiveModelConfig, LLMServiceConfig
+from .serializers import (
+    CameraSerializer,
+    AIModelSerializer,
+    ActiveModelConfigSerializer,
+    LLMServiceListSerializer,
+    LLMServiceDetailSerializer,
+    LLMServiceSaveSerializer,
+    LLMServiceSwitchSerializer,
+)
 import csv
+import json
 from io import StringIO
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 
 # 1. 启动时加载 YOLO 模型 (只加载一次，提高速度)
 MODEL_PATH = os.path.join(settings.BASE_DIR, 'ai_core', 'best.pt')
 model = YOLO(MODEL_PATH)
+
+
+LLM_SERVICE_PRESETS = [
+    {
+        'service_key': LLMServiceConfig.SERVICE_QWEN,
+        'service_name': '通义千问',
+        'base_url': 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+        'model_options': ['qwen-turbo', 'qwen-plus', 'qwen-max', 'qwen-vl-max', 'qwen-vl-plus'],
+        'model_name': 'qwen-turbo',
+        'api_key_url': 'https://bailian.console.aliyun.com/',
+        'sort_order': 10,
+    },
+    {
+        'service_key': LLMServiceConfig.SERVICE_DEEPSEEK,
+        'service_name': 'DeepSeek',
+        'base_url': 'https://api.deepseek.com/v1',
+        'model_options': ['deepseek-chat', 'deepseek-reasoner'],
+        'model_name': 'deepseek-chat',
+        'api_key_url': 'https://platform.deepseek.com/api_keys',
+        'sort_order': 20,
+    },
+    {
+        'service_key': LLMServiceConfig.SERVICE_OPENAI,
+        'service_name': 'OpenAI GPT',
+        'base_url': 'https://api.openai.com/v1',
+        'model_options': ['gpt-4o-mini', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4.1'],
+        'model_name': 'gpt-4o-mini',
+        'api_key_url': 'https://platform.openai.com/api-keys',
+        'sort_order': 30,
+    },
+    {
+        'service_key': LLMServiceConfig.SERVICE_ZHIPU,
+        'service_name': '智谱 AI',
+        'base_url': 'https://open.bigmodel.cn/api/paas/v4',
+        'model_options': ['glm-4-flash', 'glm-4-air', 'glm-4-plus', 'glm-4v-plus'],
+        'model_name': 'glm-4-flash',
+        'api_key_url': 'https://open.bigmodel.cn/usercenter/apikeys',
+        'sort_order': 40,
+    },
+]
+
+
+def _mask_api_key(api_key: str) -> str:
+    key = (api_key or '').strip()
+    if not key:
+        return ''
+    if len(key) <= 8:
+        return '*' * len(key)
+    return f"{key[:3]}{'*' * (len(key) - 7)}{key[-4:]}"
+
+
+def _ensure_llm_service_defaults():
+    valid_keys = {preset['service_key'] for preset in LLM_SERVICE_PRESETS}
+    LLMServiceConfig.objects.exclude(service_key__in=valid_keys).delete()
+    for preset in LLM_SERVICE_PRESETS:
+        defaults = {
+            'service_name': preset['service_name'],
+            'base_url': preset['base_url'],
+            'model_options': preset['model_options'],
+            'model_name': preset['model_name'],
+            'api_key_url': preset['api_key_url'],
+            'sort_order': preset['sort_order'],
+        }
+        service, created = LLMServiceConfig.objects.get_or_create(
+            service_key=preset['service_key'],
+            defaults=defaults,
+        )
+        changed = False
+        for field, value in defaults.items():
+            current = getattr(service, field)
+            if field == 'model_name' and (service.model_name or '').strip():
+                continue
+            if current != value:
+                setattr(service, field, value)
+                changed = True
+        if created:
+            changed = True
+        if changed:
+            service.save()
+
+
+def _get_enabled_llm_service():
+    _ensure_llm_service_defaults()
+    return LLMServiceConfig.objects.filter(enabled=True).order_by('sort_order', 'id').first()
+
+
+def _sync_active_llm_model(service: LLMServiceConfig, user=None):
+    if not service:
+        return
+    config = ActiveModelConfig.objects.order_by('id').first()
+    if not config:
+        config = ActiveModelConfig.objects.create()
+    ai_model, _ = AIModel.objects.get_or_create(
+        name=service.service_name,
+        model_type=AIModel.MODEL_TYPE_LLM,
+        defaults={
+            'version': service.model_name or service.service_key,
+            'status': AIModel.STATUS_ENABLED if service.enabled else AIModel.STATUS_STANDBY,
+            'accuracy': 0.0,
+            'deploy_node': service.base_url,
+            'response_mode': '自动分析',
+            'description': f'{service.service_name} 大模型服务',
+            'is_active': service.enabled,
+        },
+    )
+    ai_model.version = service.model_name or ai_model.version
+    ai_model.deploy_node = service.base_url
+    ai_model.status = AIModel.STATUS_ENABLED if service.enabled else AIModel.STATUS_STANDBY
+    ai_model.is_active = bool(service.enabled)
+    ai_model.save()
+    if service.enabled:
+        AIModel.objects.filter(model_type=AIModel.MODEL_TYPE_LLM).exclude(id=ai_model.id).update(is_active=False)
+        config.llm_model = ai_model
+        if user is not None:
+            config.updated_by = user
+        config.save(update_fields=['llm_model', 'updated_by', 'updated_at'])
+
+
+def _get_model_category(model_name: str) -> str:
+    value = (model_name or '').lower()
+    multimodal_tokens = ('4o', 'vl', 'vision', '4v')
+    return 'multimodal' if any(token in value for token in multimodal_tokens) else 'text'
+
+
+def _test_llm_service_connection(service: LLMServiceConfig, api_key: str | None = None, model_name: str | None = None):
+    final_key = (api_key if api_key is not None else service.api_key or '').strip()
+    final_model = (model_name if model_name is not None else service.model_name or '').strip()
+    if not final_key:
+        return False, 'API Key 不能为空'
+    if not final_model:
+        return False, '模型名称不能为空'
+
+    category = _get_model_category(final_model)
+    content = [
+        {'type': 'text', 'text': 'ping'}
+    ] if category == 'multimodal' else 'ping'
+
+    payload = json.dumps({
+        'model': final_model,
+        'messages': [{'role': 'user', 'content': content}],
+        'max_tokens': 8,
+    }).encode('utf-8')
+    req = urllib_request.Request(
+        url=f"{service.base_url.rstrip('/')}/chat/completions",
+        data=payload,
+        headers={
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {final_key}',
+        },
+        method='POST',
+    )
+    try:
+        with urllib_request.urlopen(req, timeout=service.request_timeout or 30) as resp:
+            status = getattr(resp, 'status', 200)
+            if 200 <= status < 300:
+                return True, f'{service.service_name} 连接测试通过'
+            return False, f'{service.service_name} 连接测试失败，状态码 {status}'
+    except urllib_error.HTTPError as exc:
+        try:
+            detail = exc.read().decode('utf-8', errors='ignore')[:200]
+        except Exception:
+            detail = ''
+        return False, f'连接测试失败：HTTP {exc.code}{(" - " + detail) if detail else ""}'
+    except Exception as exc:
+        return False, f'连接测试失败：{str(exc)}'
+
+
+def _build_llm_overview_payload():
+    _ensure_llm_service_defaults()
+    services = LLMServiceConfig.objects.all().order_by('sort_order', 'id')
+    enabled_service = services.filter(enabled=True).first()
+    current = enabled_service or services.first()
+    connected = bool(current and current.is_connected)
+    current_serializer = LLMServiceDetailSerializer(current) if current else None
+    return {
+        'detection_model': 'YOLOv8',
+        'current_llm_name': current.service_name if current and current.enabled else '未启用',
+        'connection_status': 'connected' if connected else 'disconnected',
+        'connection_status_label': '已连接' if connected else '未连接',
+        'services': LLMServiceListSerializer(services, many=True).data,
+        'current_config': current_serializer.data if current_serializer else None,
+        'current_provider': current.service_name if current else '',
+        'current_model_name': current.model_name if current else '',
+        'current_api_key_masked': _mask_api_key(current.api_key if current else ''),
+        'current_base_url': current.base_url if current else '',
+        'current_timeout': current.request_timeout if current else 30,
+    }
 
 def _normalize_verify_status(v):
     v = (v or '').strip()
@@ -678,3 +877,174 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class EmailTokenObtainPairView(TokenObtainPairView):
     serializer_class = EmailTokenObtainPairSerializer
+
+
+class CameraViewSet(viewsets.ModelViewSet):
+    queryset = Camera.objects.all().order_by('-created_at')
+    serializer_class = CameraSerializer
+    permission_classes = [IsAuthenticated]
+
+
+class AIModelViewSet(viewsets.ModelViewSet):
+    queryset = AIModel.objects.all().order_by('-updated_at', '-created_at')
+    serializer_class = AIModelSerializer
+    permission_classes = [IsAuthenticated]
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def llm_service_overview(request):
+    return Response(_build_llm_overview_payload(), status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def llm_service_list(request):
+    _ensure_llm_service_defaults()
+    services = LLMServiceConfig.objects.all().order_by('sort_order', 'id')
+    return Response({'results': LLMServiceListSerializer(services, many=True).data}, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def llm_service_models(request, service_key: str):
+    _ensure_llm_service_defaults()
+    try:
+        service = LLMServiceConfig.objects.get(service_key=service_key)
+    except LLMServiceConfig.DoesNotExist:
+        return Response({'detail': '服务商不存在'}, status=404)
+    models = [
+        {
+            'value': name,
+            'label': name,
+            'category': _get_model_category(name),
+        }
+        for name in (service.model_options or [])
+    ]
+    return Response({
+        'service_key': service.service_key,
+        'service_name': service.service_name,
+        'models': models,
+        'base_url': service.base_url,
+        'api_key_url': service.api_key_url,
+        'current_model': service.model_name or '',
+        'has_api_key': bool((service.api_key or '').strip()),
+        'masked_api_key': _mask_api_key(service.api_key or ''),
+        'request_timeout': service.request_timeout or 30,
+        'enabled': service.enabled,
+    }, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def llm_current_config(request):
+    payload = _build_llm_overview_payload()
+    return Response(payload.get('current_config') or {}, status=200)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def llm_service_save(request):
+    _ensure_llm_service_defaults()
+    serializer = LLMServiceSaveSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.validated_data
+    service = LLMServiceConfig.objects.get(service_key=data['service_key'])
+
+    if data.get('enabled'):
+        LLMServiceConfig.objects.exclude(id=service.id).update(enabled=False)
+
+    service.model_name = data['model_name']
+    service.api_key = data['api_key']
+    service.request_timeout = data.get('request_timeout', service.request_timeout or 30)
+    service.enabled = bool(data.get('enabled', False))
+    service.save(update_fields=['model_name', 'api_key', 'request_timeout', 'enabled', 'updated_at'])
+    _sync_active_llm_model(service, request.user)
+    return Response({
+        'detail': '配置保存成功',
+        'service': LLMServiceDetailSerializer(service).data,
+        'overview': _build_llm_overview_payload(),
+    }, status=200)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def llm_service_test(request):
+    _ensure_llm_service_defaults()
+    service_key = (request.data.get('service_key') or '').strip()
+    if not service_key:
+        return Response({'detail': '缺少服务商标识'}, status=400)
+    try:
+        service = LLMServiceConfig.objects.get(service_key=service_key)
+    except LLMServiceConfig.DoesNotExist:
+        return Response({'detail': '服务商不存在'}, status=404)
+
+    api_key = request.data.get('api_key')
+    model_name = request.data.get('model_name')
+    ok, message = _test_llm_service_connection(service, api_key=api_key, model_name=model_name)
+    service.is_connected = ok
+    service.last_tested_at = timezone.now()
+    service.save(update_fields=['is_connected', 'last_tested_at', 'updated_at'])
+    return Response({
+        'success': ok,
+        'message': message,
+        'service_key': service.service_key,
+        'tested_at': timezone.localtime(service.last_tested_at).isoformat() if service.last_tested_at else '',
+    }, status=200 if ok else 400)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def llm_service_switch(request):
+    _ensure_llm_service_defaults()
+    serializer = LLMServiceSwitchSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    service = serializer.instance
+    LLMServiceConfig.objects.exclude(id=service.id).update(enabled=False)
+    service.enabled = True
+    service.save(update_fields=['enabled', 'updated_at'])
+    _sync_active_llm_model(service, request.user)
+    return Response({
+        'detail': f'已切换到 {service.service_name}',
+        'service': LLMServiceDetailSerializer(service).data,
+        'overview': _build_llm_overview_payload(),
+    }, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def active_model_config(request):
+    config = ActiveModelConfig.objects.order_by('id').first()
+    if not config:
+        return Response({
+            'detection_model': None,
+            'llm_model': None,
+            'inference_threshold': 0.75,
+            'response_mode': '自动分析',
+            'deploy_node': '',
+        }, status=200)
+    return Response(ActiveModelConfigSerializer(config).data, status=200)
+
+
+@api_view(['POST', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def update_active_model_config(request):
+    config = ActiveModelConfig.objects.order_by('id').first()
+    if not config:
+        config = ActiveModelConfig.objects.create()
+    serializer = ActiveModelConfigSerializer(config, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    serializer.save(updated_by=request.user)
+    return Response(ActiveModelConfigSerializer(config).data, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def camera_preview_stream(request):
+    return Response({'detail': '预览流功能暂未恢复'}, status=501)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def camera_stream(request, pk: int):
+    return Response({'detail': f'摄像头 {pk} 实时流功能暂未恢复'}, status=501)

@@ -79,8 +79,7 @@ const router = createRouter({
         {
           path: 'detection/tasks',
           name: 'DetectionTasks',
-          // 👇 换成真实的组件引用
-          component: () => import('../views/detection/Tasks.vue') 
+          component: () => import('../views/detection/Tasks.vue')
         },
         {
           path: 'task/detail/:id',
@@ -96,6 +95,11 @@ const router = createRouter({
           path: 'camera/config',
           name: 'CameraConfig',
           component: () => import('../views/camera/Config.vue')
+        },
+        {
+          path: 'system/ai-models',
+          name: 'AIModelManage',
+          component: () => import('../views/system/AIModelManage.vue')
         },
         {
           path: 'system/users',

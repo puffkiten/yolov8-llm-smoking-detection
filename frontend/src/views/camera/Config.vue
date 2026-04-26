@@ -48,7 +48,7 @@
           </thead>
           <tbody>
             <tr v-for="cam in pagedCameras" :key="cam.id">
-              <td class="td-id">{{ cam.id }}</td><td>{{ cam.name }}</td><td>{{ cam.region }}</td><td>{{ cam.threshold }}%</td>
+              <td class="td-id">{{ cam.displayId }}</td><td>{{ cam.name }}</td><td>{{ cam.region }}</td><td>{{ cam.threshold }}%</td>
               <td>
                 <div class="status-cell">
                   <span class="status-dot" :class="cam.status === '在线' ? 'online' : 'offline'"></span>
@@ -67,7 +67,7 @@
         </table>
         <div class="pagination">
           <span class="page-info">
-            显示 {{ pageStartIndex }} 到 {{ pageEndIndex }} 项，共 {{ filteredCameras.length }} 项
+            显示 {{ pageStartIndex }} 到 {{ pageEndIndex }} 项，共 {{ totalCount }} 项
           </span>
           <div class="page-controls">
             <button class="page-btn" :disabled="currentPage === 1" @click="currentPage > 1 && (currentPage -= 1)">上一页</button>
@@ -147,15 +147,18 @@
                   {{ testBtnText }}
                 </button>
               </div>
-              <div class="video-preview-box" v-if="testStatus === 'success'">
-                <div class="preview-placeholder">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-                  <span>画面拉取成功，正在解码渲染...</span>
-                </div>
+              <div class="video-preview-box" v-if="backendStreamUrl">
+                <img
+                  :src="backendStreamUrl"
+                  style="width: 100%; height: 100%; object-fit: cover;"
+                  @load="handlePreviewLoad"
+                  @error="handlePreviewError"
+                />
               </div>
               <p class="input-hint" :class="{'error-text': testStatus === 'error', 'success-text': testStatus === 'success'}">
                 {{ testMessage || '支持主流协议：rtsp://, rtmp://, http(s)://...m3u8' }}
               </p>
+              <p v-if="localCameraHint" class="input-hint error-text">{{ localCameraHint }}</p>
             </div>
 
             <div v-show="activeTab === 'file'" class="form-group mt-16">
@@ -247,13 +250,20 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import axios from 'axios'
+import { buildApiUrl } from '@/utils/http'
+
+const authHeaders = () => {
+  const access = localStorage.getItem('access_token') || ''
+  return access ? { Authorization: `Bearer ${access}` } : {}
+}
 
 // --- 第一层：添加/编辑摄像头弹窗 ---
-const showModal = ref(false) // 🚨 修复1：默认不再弹出
+const showModal = ref(false)
 const mode = ref('add') // add | edit
-const editingId = ref('')
+const editingId = ref(null)
 
 const openModal = () => {
   mode.value = 'add'
@@ -277,7 +287,7 @@ const form = ref({
 // --- 第二层：区域管理与交互 ---
 const showRegionModal = ref(false)
 const newRegionInput = ref('')
-const customRegions = ref([]) // 🚨 修复2：默认下拉框没有数据 (空数组)
+const customRegions = ref([])
 
 const openRegionModal = () => showRegionModal.value = true
 const closeRegionModal = () => {
@@ -321,9 +331,24 @@ const handleFileChange = (e) => {
   if (e.target.files.length > 0) selectedFile.value = e.target.files[0]
 }
 
+// 辅助函数：清理用户可能误粘贴的完整 API 预览地址
+const sanitizeStreamUrl = (url) => {
+  if (url && url.includes('/api/cameras/preview/stream/?stream_url=')) {
+    try {
+      const parsedUrl = new URL(url)
+      const extracted = parsedUrl.searchParams.get('stream_url')
+      return extracted || url
+    } catch (e) {
+      return url
+    }
+  }
+  return url
+}
+
 // --- 测试连接逻辑 ---
 const testStatus = ref('idle') 
 const testMessage = ref('')
+const backendStreamUrl = ref('')
 
 const testBtnText = computed(() => {
   if (testStatus.value === 'testing') return '正在连接...'
@@ -332,110 +357,184 @@ const testBtnText = computed(() => {
   return '测试连接'
 })
 
+const handlePreviewLoad = () => {
+  testStatus.value = 'success'
+  testMessage.value = '画面加载成功'
+}
+
+const handlePreviewError = async () => {
+  try {
+    await axios.get('/api/cameras/preview/stream/', {
+      headers: authHeaders(),
+      params: {
+        stream_url: form.value.streamUrl,
+        t: Date.now(),
+      },
+    })
+    testStatus.value = 'error'
+    testMessage.value = '画面加载失败：请检查流地址、网络连接或摄像头权限'
+  } catch (e) {
+    const detail = e?.response?.data?.detail
+    testStatus.value = 'error'
+    testMessage.value = detail || '画面加载失败：请检查流地址、网络连接或摄像头权限'
+  }
+  backendStreamUrl.value = ''
+}
+
 const resetTestStatus = () => {
   testStatus.value = 'idle'
   testMessage.value = ''
+  backendStreamUrl.value = ''
 }
 
+const localCameraHint = computed(() => {
+  const value = String(form.value.streamUrl || '').trim()
+  if (!/^\d+$/.test(value)) return ''
+  return `检测到你输入的是本机摄像头编号 ${value}。在当前 macOS 环境下，这种服务端预览方式可能导致 Python 崩溃；如果你只是想测试视频，建议改填本地视频文件路径（如 test.mp4）或 RTSP/HTTP 流地址。`
+})
+
 const testConnection = async () => {
-  if (!form.value.streamUrl) {
+  form.value.streamUrl = sanitizeStreamUrl(form.value.streamUrl)
+  const url = form.value.streamUrl
+  if (!url) {
     testStatus.value = 'error'
     testMessage.value = '错误：请输入流媒体地址 (如 rtsp://...)'
     return
   }
 
   testStatus.value = 'testing'
-  testMessage.value = '正在向目标地址发起协议握手...'
+  testMessage.value = '正在加载画面...'
+  const u = encodeURIComponent(url)
+  backendStreamUrl.value = buildApiUrl(`/api/cameras/preview/stream/?stream_url=${u}&t=${Date.now()}`)
+}
 
-  await new Promise(resolve => setTimeout(resolve, 1500))
+const totalCameras = ref(0)
+const onlineCameras = ref(0)
+const offlineCameras = ref(0)
 
-  if (form.value.streamUrl.startsWith('rtsp') || form.value.streamUrl.startsWith('rtmp') || form.value.streamUrl.startsWith('http')) {
-    testStatus.value = 'success'
-    testMessage.value = '连接成功，视频流解码正常，延迟 120ms。'
-  } else {
-    testStatus.value = 'error'
-    testMessage.value = '连接超时或协议不支持，请检查网络或地址拼写。'
+const cameras = ref([])
+const cameraSearch = ref('')
+const pageSize = ref(5)
+const currentPage = ref(1)
+const totalCount = ref(0)
+
+const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)))
+const pagedCameras = computed(() => cameras.value)
+const pageStartIndex = computed(() => (totalCount.value ? (currentPage.value - 1) * pageSize.value + 1 : 0))
+const pageEndIndex = computed(() => (totalCount.value ? Math.min(currentPage.value * pageSize.value, totalCount.value) : 0))
+
+const mapCam = (it, displayIndex = 0) => {
+  const t = Number(it.confidence_threshold || 0)
+  const last = it.last_active ? new Date(it.last_active) : null
+  const hh = last ? String(last.getHours()).padStart(2, '0') : ''
+  const mm = last ? String(last.getMinutes()).padStart(2, '0') : ''
+  const ss = last ? String(last.getSeconds()).padStart(2, '0') : ''
+  return {
+    id: it.id,
+    displayId: displayIndex + 1,
+    name: it.name,
+    region: it.region || '',
+    threshold: Math.round(t * 100),
+    status: it.effective_is_online ? '在线' : '离线',
+    lastSync: last ? `${hh}:${mm}:${ss}` : '—',
+    stream_url: it.stream_url || ''
   }
 }
 
-const submitForm = () => {
+const fetchStats = async () => {
+  try {
+    const res = await axios.get('/api/cameras/stats/', { headers: authHeaders() })
+    const d = res.data || {}
+    totalCameras.value = d.total_count || 0
+    onlineCameras.value = d.online_count || 0
+    offlineCameras.value = d.offline_count || 0
+  } catch {}
+}
+
+const fetchList = async () => {
+  try {
+    const res = await axios.get('/api/cameras/', {
+      headers: authHeaders(),
+      params: { page: currentPage.value, page_size: pageSize.value, search: cameraSearch.value || undefined }
+    })
+    totalCount.value = Number(res.data?.count || 0)
+    cameras.value = Array.isArray(res.data?.results) ? res.data.results.map((item, index) => mapCam(item, index)) : []
+    const regions = Array.from(new Set(cameras.value.map(x => x.region).filter(Boolean)))
+    customRegions.value = regions
+  } catch {
+    cameras.value = []
+    totalCount.value = 0
+  }
+}
+
+// 每 10 秒刷新一次列表以同步在线状态
+let listTimer = null
+onMounted(() => {
+  listTimer = setInterval(fetchList, 10000)
+})
+onUnmounted(() => {
+  if (listTimer) clearInterval(listTimer)
+})
+
+const submitForm = async () => {
   if (!form.value.name || !form.value.region) {
     ElMessage.warning('请填写摄像头名称与所属区域')
     return
   }
-  if (mode.value === 'edit') {
-    const idx = cameras.value.findIndex((c) => c.id === editingId.value)
-    if (idx !== -1) {
-      cameras.value[idx] = {
-        ...cameras.value[idx],
-        name: form.value.name,
-        region: form.value.region,
-        threshold: Number(form.value.threshold),
-      }
-      ElMessage.success('摄像头信息已更新')
+
+  let finalStreamUrl = sanitizeStreamUrl(form.value.streamUrl) || ''
+
+  // 如果是文件上传模式且选择了文件，先执行上传
+  if (activeTab.value === 'file' && selectedFile.value) {
+    try {
+      const formData = new FormData()
+      formData.append('file', selectedFile.value)
+      const uploadRes = await axios.post('/api/cameras/upload-file/', formData, {
+        headers: { ...authHeaders(), 'Content-Type': 'multipart/form-data' }
+      })
+      // 使用后端返回的文件路径作为 stream_url
+      finalStreamUrl = uploadRes.data.relative_path
+    } catch (e) {
+      const detail = e?.response?.data?.detail
+      ElMessage.error(detail || '视频文件上传失败，请检查网络或文件格式')
+      return
     }
-  } else {
-    const newId = `CAM-${String(cameras.value.length + 1).padStart(3, '0')}`
-    cameras.value.push({
-      id: newId,
+  }
+
+  if (activeTab.value === 'stream' && !finalStreamUrl) {
+    ElMessage.warning('请输入视频流地址')
+    return
+  }
+  if (activeTab.value === 'file' && !finalStreamUrl) {
+    ElMessage.warning('请选择本地录像文件')
+    return
+  }
+
+  try {
+    const payload = {
       name: form.value.name,
       region: form.value.region,
-      threshold: Number(form.value.threshold),
-      status: '在线',
-      lastSync: new Date().toLocaleTimeString('zh-CN', { hour12: false }).slice(0, 8),
-    })
-    ElMessage.success('摄像头添加成功！')
+      stream_url: finalStreamUrl,
+      confidence_threshold: Number(form.value.threshold) / 100
+    }
+    if (mode.value === 'edit' && editingId.value) {
+      await axios.patch(`/api/cameras/${editingId.value}/`, payload, { headers: authHeaders() })
+      ElMessage.success('摄像头信息已更新')
+    } else {
+      await axios.post('/api/cameras/', payload, { headers: authHeaders() })
+      ElMessage.success('摄像头添加成功')
+    }
+    closeModal()
+    selectedFile.value = null // 清空文件
+    await fetchList()
+    await fetchStats()
+  } catch {
+    ElMessage.error('操作失败')
   }
-  closeModal()
 }
 
-// 底部页面的假数据
-const cameras = ref([
-  { id: 'CAM-001', name: '车间A1高清流', region: '生产A区', threshold: 85, status: '在线', lastSync: '14:30:22' },
-  { id: 'CAM-002', name: '门禁入口球机', region: '办公大楼', threshold: 75, status: '在线', lastSync: '14:31:05' },
-  { id: 'CAM-003', name: '仓库装卸货台', region: '仓储区', threshold: 80, status: '离线', lastSync: '22:15:40' }
-])
-
-const cameraSearch = ref('')
-
-const filteredCameras = computed(() => {
-  const kw = cameraSearch.value.trim()
-  if (!kw) return cameras.value
-  return cameras.value.filter((c) => {
-    return c.name.includes(kw) || c.region.includes(kw) || c.id.includes(kw)
-  })
-})
-
-// 统计卡片（定义：基于当前 cameras 列表，不受搜索过滤影响）
-const totalCameras = computed(() => cameras.value.length)
-const onlineCameras = computed(() => cameras.value.filter(c => c.status === '在线').length)
-const offlineCameras = computed(() => cameras.value.filter(c => c.status !== '在线').length)
-
-// 列表分页（定义：对 filteredCameras 分页，搜索会影响列表与分页）
-const pageSize = ref(5)
-const currentPage = ref(1)
-
-const totalPages = computed(() => Math.max(1, Math.ceil(filteredCameras.value.length / pageSize.value)))
-
-const pagedCameras = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredCameras.value.slice(start, start + pageSize.value)
-})
-
-const pageStartIndex = computed(() => (filteredCameras.value.length ? (currentPage.value - 1) * pageSize.value + 1 : 0))
-const pageEndIndex = computed(() => (filteredCameras.value.length ? Math.min(currentPage.value * pageSize.value, filteredCameras.value.length) : 0))
-
-// 搜索/过滤变化时回到第一页；数据变化时把页码夹到有效范围
-watch(cameraSearch, () => {
-  currentPage.value = 1
-})
-
-watch(filteredCameras, () => {
-  if (currentPage.value > totalPages.value) currentPage.value = totalPages.value
-}, { deep: true })
-
 const handleView = (cam) => {
-  ElMessage.info(`预览：${cam.name}（${cam.region} / 阈值 ${cam.threshold}% / ${cam.status}）`)
+  ElMessage.info(`${cam.name}（${cam.region} / 阈值 ${cam.threshold}% / ${cam.status}）`)
 }
 
 const handleEdit = (cam) => {
@@ -445,7 +544,7 @@ const handleEdit = (cam) => {
     name: cam.name,
     region: cam.region,
     location: '',
-    streamUrl: '',
+    streamUrl: cam.stream_url || '',
     threshold: cam.threshold,
   }
   showModal.value = true
@@ -458,12 +557,25 @@ const handleDelete = async (cam) => {
       '删除确认',
       { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }
     )
-    cameras.value = cameras.value.filter((c) => c.id !== cam.id)
+    await axios.delete(`/api/cameras/${cam.id}/`, { headers: authHeaders() })
     ElMessage.success('已删除摄像头')
-  } catch {
-    // cancelled
-  }
+    await fetchList()
+    await fetchStats()
+  } catch {}
 }
+
+const debounceTimer = ref(null)
+watch(cameraSearch, () => {
+  currentPage.value = 1
+  if (debounceTimer.value) window.clearTimeout(debounceTimer.value)
+  debounceTimer.value = window.setTimeout(fetchList, 300)
+})
+
+watch([currentPage, pageSize], fetchList)
+onMounted(async () => {
+  await fetchStats()
+  await fetchList()
+})
 </script>
 
 <style scoped>
@@ -524,11 +636,12 @@ const handleDelete = async (cam) => {
 .modal-card {
   width: 580px; background: #fff; border-radius: 12px; box-shadow: 0 20px 40px rgba(0,0,0,0.15);
   display: flex; flex-direction: column; animation: slideUp 0.3s ease;
+  max-height: 90vh; /* 限制弹窗最大高度为视口高度的 90% */
 }
-.region-card { width: 420px; } /* 第二层弹窗小一点 */
+.region-card { width: 420px; max-height: 80vh; } /* 第二层弹窗小一点 */
 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-.modal-header { padding: 24px 30px; display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid transparent; }
+.modal-header { padding: 24px 30px 16px 30px; display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid transparent; flex-shrink: 0; }
 .mh-title-area { display: flex; gap: 12px; }
 .mh-icon { color: #3b9eff; margin-top: 2px; }
 .mh-text h3 { margin: 0 0 6px 0; font-size: 18px; font-weight: 700; color: #1a2332; }
@@ -537,7 +650,26 @@ const handleDelete = async (cam) => {
 .close-btn:hover { color: #1a2332; }
 
 /* ================= 弹窗表单内容 ================= */
-.modal-body { padding: 0 30px 24px 30px; }
+.modal-body { 
+  padding: 0 30px 24px 30px; 
+  overflow-y: auto; /* 允许内容区域滚动 */
+  flex: 1; /* 占据剩余空间 */
+}
+
+/* 自定义滚动条样式 */
+.modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.modal-body::-webkit-scrollbar-thumb {
+  background: #e8ecf2;
+  border-radius: 3px;
+}
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: #dcdfe6;
+}
 .form-group { margin-bottom: 18px; }
 .form-group label { display: block; font-size: 13px; font-weight: 600; color: #2d3a4a; margin-bottom: 8px; }
 
@@ -627,7 +759,7 @@ const handleDelete = async (cam) => {
 .delete-link { color: #e85c5c; font-size: 12px; cursor: pointer; }
 .delete-link:hover { text-decoration: underline; }
 
-.modal-footer { padding: 16px 30px; border-top: 1px solid #f0f3f8; display: flex; justify-content: flex-end; gap: 12px; background: #fafbfc; border-radius: 0 0 12px 12px; }
+.modal-footer { padding: 16px 30px; border-top: 1px solid #f0f3f8; display: flex; justify-content: flex-end; gap: 12px; background: #fafbfc; border-radius: 0 0 12px 12px; flex-shrink: 0; }
 .btn-cancel { height: 36px; padding: 0 20px; background: #fff; border: 1px solid #dcdfe6; border-radius: 6px; font-size: 13px; font-weight: 500; color: #4a5568; cursor: pointer; transition: all 0.2s; }
 .btn-cancel:hover { background: #f4f7fa; color: #1a2332; }
 .btn-confirm { height: 36px; padding: 0 20px; background: #3b9eff; border: none; border-radius: 6px; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; transition: all 0.2s; }

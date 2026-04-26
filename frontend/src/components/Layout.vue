@@ -7,91 +7,135 @@
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
           </svg>
         </div>
-        <span class="logo-text">Aero Smart</span>
+        <div class="logo-meta">
+          <span class="logo-text">Aero Smart</span>
+        </div>
       </div>
 
       <nav class="sidebar-nav">
-        <div 
-          class="nav-item" 
-          :class="{ active: route.path === '/dashboard' }"
-          @click="router.push('/dashboard')"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
-            <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
-          </svg>
-          <span>仪表板</span>
-        </div>
-
-        <div class="nav-group">
-          <div class="nav-item has-children" @click="toggleGroup('detect')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-            <span>检测管理</span>
-            <svg class="chevron" :class="{ open: groups.detect }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
-          </div>
-          <div class="nav-children" v-show="groups.detect">
-            <div 
-              class="nav-child" 
-              :class="{ 'child-active': route.path === '/detection/upload' }"
-              @click="router.push('/detection/upload')"
-            >上传检测</div>
-            <div 
-              class="nav-child"
-              :class="{ 'child-active': route.path === '/detection/tasks' }"
-              @click="router.push('/detection/tasks')"
-            >检测任务</div>
+        <div class="nav-section">
+          <div class="nav-section-title">概览</div>
+          <div
+            class="nav-item"
+            :class="{ active: route.path === '/dashboard' }"
+            @click="router.push('/dashboard')"
+          >
+            <span class="nav-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+                <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+                <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+              </svg>
+            </span>
+            <span>仪表板</span>
           </div>
         </div>
 
-        <div class="nav-group">
-          <div class="nav-item has-children" @click="toggleGroup('camera')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M23 7 16 12 23 17V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
-            </svg>
-            <span>摄像头管理</span>
-            <svg class="chevron" :class="{ open: groups.camera }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
+        <div class="nav-divider"></div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">检测中心</div>
+          <div
+            class="nav-item"
+            :class="{ active: route.path === '/camera/realtime' }"
+            @click="router.push('/camera/realtime')"
+          >
+            <span class="nav-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 7 16 12 23 17V7z"/>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+              </svg>
+            </span>
+            <span>实时监控</span>
           </div>
-          <div class="nav-children" v-show="groups.camera">
-            <div 
-              class="nav-child"
-              :class="{ 'child-active': route.path === '/camera/config' }"
-              @click="router.push('/camera/config')"
-            >摄像头配置</div>
-            <div 
-              class="nav-child"
-              :class="{ 'child-active': route.path === '/camera/realtime' }"
-              @click="router.push('/camera/realtime')"
-            >实时监控</div>
+          <div
+            class="nav-item"
+            :class="{ active: route.path === '/detection/upload' || route.path === '/detection/tasks' }"
+            @click="router.push('/detection/upload')"
+          >
+            <span class="nav-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="4" y="3" width="16" height="18" rx="2"/>
+                <path d="M9 3v18"/>
+                <path d="M8 8h1"/>
+                <path d="M8 12h1"/>
+                <path d="M8 16h1"/>
+              </svg>
+            </span>
+            <span>检测任务</span>
           </div>
         </div>
 
-        <!-- 系统管理：仅管理员可见 -->
-        <div 
-          v-if="currentUser.role === 'admin'"
-          class="nav-item"
-          :class="{ active: route.path.startsWith('/system') }"
-          @click="router.push('/system/users')"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-          </svg>
-          <span>系统管理</span>
+        <div class="nav-divider"></div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">设备中心</div>
+          <div
+            class="nav-item"
+            :class="{ active: route.path === '/camera/config' }"
+            @click="router.push('/camera/config')"
+          >
+            <span class="nav-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 7 16 12 23 17V7z"/>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+              </svg>
+            </span>
+            <span>摄像头配置</span>
+          </div>
+        </div>
+
+        <div class="nav-divider"></div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">系统管理</div>
+          <template v-if="currentUser.role === 'admin'">
+            <div
+              class="nav-item"
+              :class="{ active: route.path === '/system/ai-models' }"
+              @click="router.push('/system/ai-models')"
+            >
+              <span class="nav-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2 4 7v10l8 5 8-5V7l-8-5z"/>
+                  <path d="M12 22V12"/>
+                  <path d="m20 7-8 5-8-5"/>
+                </svg>
+              </span>
+              <span>AI 模型管理</span>
+            </div>
+            <div
+              class="nav-item"
+              :class="{ active: route.path === '/system/users' }"
+              @click="router.push('/system/users')"
+            >
+              <span class="nav-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              </span>
+              <span>系统设置</span>
+            </div>
+          </template>
         </div>
       </nav>
+
+      <div class="sidebar-user-card">
+        <img :src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`" class="sidebar-user-avatar" alt=""/>
+        <div class="sidebar-user-meta">
+          <div class="sidebar-user-name">{{ currentUser.name }}</div>
+          <div class="sidebar-user-role">{{ currentUser.role === 'admin' ? '管理员' : '普通用户' }}</div>
+        </div>
+      </div>
 
       <div class="sidebar-logout" @click="handleLogout">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
           <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
         </svg>
-        <span>退出系统</span>
+        <span>退出登录</span>
       </div>
     </aside>
 
@@ -104,7 +148,7 @@
         </div>
         <div class="top-center">
           <div class="search-box">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
             </svg>
             <input
@@ -124,8 +168,11 @@
             </svg>
           </button>
           <button class="icon-btn" @click="toggleTheme">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg v-if="theme === 'light'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+            <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
             </svg>
           </button>
           <button class="icon-btn notify" @click="toggleNotifyPanel">
@@ -154,14 +201,12 @@
           </div>
           <div class="user-info">
             <div class="user-text">
-              <!-- 显示真实用户名和角色标签 -->
               <span class="user-name">
                 {{ currentUser.name }}
                 <span class="role-badge" :class="currentUser.role === 'admin' ? 'badge-admin' : 'badge-user'">
                   {{ currentUser.role === 'admin' ? '管理员' : '普通用户' }}
                 </span>
               </span>
-              <span class="user-email">{{ currentUser.email }}</span>
             </div>
             <img :src="`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser.name}`" class="user-avatar" alt=""/>
           </div>
@@ -175,15 +220,6 @@
           </transition>
         </router-view>
       </main>
-
-      <footer class="main-footer">
-        <span>© 2026 Aero Smart Monitoring. All rights reserved.</span>
-        <div class="footer-links">
-          <a href="#">服务协议</a>
-          <a href="#">隐私政策</a>
-          <a href="#">版本 v1.0.4</a>
-        </div>
-      </footer>
     </div>
   </div>
 </template>
@@ -197,16 +233,14 @@ import axios from 'axios'
 const router = useRouter()
 const route  = useRoute()
 
-const groups = reactive({ detect: true, camera: true })
-const toggleGroup = (key) => { groups[key] = !groups[key] }
-
 const searchKeyword = ref('')
 
-const theme = ref(document.documentElement.getAttribute('data-theme') || 'light')
+const theme = ref(localStorage.getItem('theme') || 'light')
 
 const applyTheme = (t) => {
   document.documentElement.setAttribute('data-theme', t)
   theme.value = t
+  localStorage.setItem('theme', t)
 }
 
 const handleSearch = () => {
@@ -234,19 +268,23 @@ const handleSearch = () => {
     router.push('/dashboard')
     return
   }
-  if (kw.includes('上传') || lower.includes('upload')) {
-    router.push('/detection/upload')
-    return
-  }
-  if (kw.includes('任务') || kw.includes('检测') || lower.includes('detection')) {
-    router.push('/detection/tasks')
-    return
-  }
-  if (kw.includes('摄像头') || kw.includes('监控') || lower.includes('camera')) {
+  if (kw.includes('实时') || kw.includes('监控')) {
     router.push('/camera/realtime')
     return
   }
-  if (kw.includes('用户') || lower.includes('user')) {
+  if (kw.includes('任务') || kw.includes('检测') || lower.includes('detection')) {
+    router.push('/detection/upload')
+    return
+  }
+  if (kw.includes('摄像头') || kw.includes('配置') || lower.includes('camera')) {
+    router.push('/camera/config')
+    return
+  }
+  if (kw.includes('模型') || kw.includes('ai')) {
+    router.push('/system/ai-models')
+    return
+  }
+  if (kw.includes('系统') || kw.includes('用户') || lower.includes('user')) {
     router.push('/system/users')
     return
   }
@@ -286,7 +324,7 @@ const persistLastCountedSig = () => localStorage.setItem(lastCountedSigKey, Stri
 const updateRunIndexFromLatest = async (latestId) => {
   if (!latestId) return
   try {
-    const resp = await axios.get(`http://127.0.0.1:8000/api/detection/tasks/${latestId}`, { headers: authHeaders() })
+    const resp = await axios.get(`/api/detection/tasks/${latestId}`, { headers: authHeaders() })
     const d = resp.data || {}
     const finishIso = d.finished_at_iso || d.finished_at || ''
     const completed = d.status === 'completed'
@@ -304,7 +342,7 @@ const updateRunIndexFromLatest = async (latestId) => {
 
 const fetchNotifications = async () => {
   try {
-    const resp = await axios.get('http://127.0.0.1:8000/api/detection/tasks', { headers: authHeaders() })
+    const resp = await axios.get('/api/detection/tasks', { headers: authHeaders() })
     const items = resp.data?.results || []
     // 使用与左侧卡片相同的计数（runIndex），并在此处补充一次同步
     await updateRunIndexFromLatest(items[0]?.id)
@@ -372,20 +410,23 @@ provide('currentUser', currentUser)
 const handleLogout = () => { router.push('/login') }
 
 const currentRouteName = computed(() => {
-  if (route.path === '/dashboard') return '运行概览'
-  if (route.path.includes('/detection/upload')) return '上传检测'
-  if (route.path.includes('/detection/tasks')) return '检测任务'
-  if (route.path.includes('/camera/config')) return '摄像头配置'
+  if (route.path === '/dashboard') return '仪表板'
   if (route.path.includes('/camera/realtime')) return '实时监控'
-  if (route.path.includes('/system')) return '用户管理'
+  if (route.path.includes('/detection/upload') || route.path.includes('/detection/tasks')) return '检测任务'
+  if (route.path.includes('/camera/config')) return '摄像头配置'
+  if (route.path.includes('/system/ai-models')) return 'AI 模型管理'
+  if (route.path.includes('/system/users')) return '系统设置'
   return '系统页面'
 })
 
 onMounted(async () => {
+  // 初始化主题
+  applyTheme(theme.value)
+
   const access = localStorage.getItem('access_token') || ''
   if (!access) return
   try {
-    const resp = await axios.get('http://127.0.0.1:8000/api/me', {
+    const resp = await axios.get('/api/me', {
       headers: { Authorization: `Bearer ${access}` }
     })
     const data = resp.data || {}
@@ -409,162 +450,532 @@ onUnmounted(() => {
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 .dashboard-layout {
-  display: flex; min-height: 100vh; width: 100vw;
-  background: #f4f7fa;
-  color: #1a2332;
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+  background:
+    radial-gradient(circle at top, rgba(59, 158, 255, 0.08), transparent 32%),
+    linear-gradient(180deg, #f8fbff 0%, var(--color-bg-page) 100%);
+  color: var(--color-text-main);
 }
 
-/* SIDEBAR */
 .sidebar {
-  width: 220px; flex-shrink: 0; background: #fff;
-  display: flex; flex-direction: column;
-  border-right: 1px solid #edf0f5;
-  position: sticky; top: 0; height: 100vh; align-self: flex-start; z-index: 100;
+  width: 248px;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(20px);
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid rgba(226, 232, 240, 0.88);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  align-self: flex-start;
+  z-index: 100;
 }
-.sidebar-logo {
-  display: flex; align-items: center; gap: 9px;
-  padding: 18px 20px; border-bottom: 1px solid #f0f3f8; height: 60px;
-}
-.logo-icon {
-  width: 30px; height: 30px; background: #3b9eff; border-radius: 7px;
-  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-}
-.logo-text { font-size: 16px; font-weight: 700; color: #3b9eff; letter-spacing: -.2px; }
 
-.sidebar-nav { flex: 1; padding: 14px 0; overflow-y: auto; }
+.sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 22px;
+  min-height: 74px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.78);
+}
+
+.logo-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.22);
+  flex-shrink: 0;
+}
+
+.logo-meta {
+  min-width: 0;
+}
+
+.logo-text {
+  font-size: 24px;
+  font-weight: 700;
+  color: #2563eb;
+  letter-spacing: -0.03em;
+}
+
+.sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 14px 14px;
+}
+
+.nav-divider {
+  height: 1px;
+  margin: 18px 24px;
+  background: linear-gradient(90deg, rgba(226, 232, 240, 0), rgba(226, 232, 240, 1), rgba(226, 232, 240, 0));
+}
+
+.nav-section + .nav-section {
+  margin-top: 0;
+}
+
+.nav-section-title {
+  padding: 0 24px 10px;
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .nav-item {
-  display: flex; align-items: center; gap: 10px;
-  padding: 12px 20px; font-size: 14px; color: #5a6475;
-  cursor: pointer; transition: all .18s; position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 22px;
+  border-radius: 18px;
+  font-size: 15px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--color-text-sub);
+  cursor: pointer;
+  transition: all .2s ease;
+  position: relative;
 }
-.nav-item:hover { background: #f5f8ff; color: #3b9eff; }
-.nav-item.active { background: #eff6ff; color: #3b9eff; font-weight: 600; }
+
+.nav-icon {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.nav-item:hover {
+  background: rgba(59, 130, 246, 0.08);
+  color: #2563eb;
+}
+
+.nav-item:hover .nav-icon {
+  color: #2563eb;
+}
+
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.16), rgba(59, 130, 246, 0.07));
+  color: #2563eb;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.08);
+}
+
+.nav-item.active .nav-icon {
+  color: #2563eb;
+}
+
 .nav-item.active::before {
-  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
-  width: 3px; background: #3b9eff; border-radius: 0 2px 2px 0;
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
 }
-.chevron { margin-left: auto; transition: transform .2s; }
-.chevron.open { transform: rotate(180deg); }
-.nav-children { background: #fafbfc; }
+
+.chevron {
+  margin-left: auto;
+  color: #94a3b8;
+  transition: transform .2s ease;
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+}
+
+.nav-children {
+  margin-top: 2px;
+  padding-left: 16px;
+}
+
 .nav-child {
-  padding: 10px 20px 10px 46px; font-size: 13.5px; color: #6b7a90; cursor: pointer; transition: all .15s;
+  position: relative;
+  margin: 4px 0;
+  padding: 10px 14px 10px 34px;
+  border-radius: 12px;
+  font-size: 14px;
+  color: #64748b;
+  cursor: pointer;
+  transition: all .18s ease;
 }
-.nav-child:hover { color: #3b9eff; background: #f0f7ff; }
-.child-active { color: #3b9eff; font-weight: 500; }
+
+.nav-child::before {
+  content: '';
+  position: absolute;
+  left: 18px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  transform: translateY(-50%);
+  transition: all .18s ease;
+}
+
+.nav-child:hover {
+  background: rgba(59, 130, 246, 0.06);
+  color: #2563eb;
+}
+
+.nav-child:hover::before,
+.child-active::before {
+  background: #2563eb;
+}
+
+.child-active {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.sidebar-user-card {
+  margin: 8px 16px 12px;
+  padding: 14px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.96));
+  border: 1px solid rgba(226, 232, 240, 0.96);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebar-user-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid rgba(226, 232, 240, 0.96);
+}
+
+.sidebar-user-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-main);
+}
+
+.sidebar-user-role {
+  margin-top: 3px;
+  font-size: 12px;
+  color: #64748b;
+}
 
 .sidebar-logout {
-  display: flex; align-items: center; gap: 10px; padding: 18px 20px;
-  border-top: 1px solid #f0f3f8; font-size: 14px; color: #e85c5c;
-  cursor: pointer; font-weight: 500; transition: opacity .18s;
+  margin: 0 16px 18px;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  border-radius: 14px;
+  background: #fff;
+  font-size: 14px;
+  color: #ef4444;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all .18s ease;
 }
-.sidebar-logout:hover { opacity: .75; background: #fff1f0; }
 
-/* MAIN WRAP */
-.main-wrap { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 100vh; }
+.sidebar-logout:hover {
+  background: #fff5f5;
+  border-color: rgba(239, 68, 68, 0.38);
+}
 
-/* TOPBAR */
+.main-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 .topbar {
-  height: 60px; background: #fff; border-bottom: 1px solid #edf0f5;
-  display: flex; align-items: center; padding: 0 24px; gap: 16px;
-  position: sticky; top: 0; z-index: 50;
+  height: 74px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.84);
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
-.breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 14px; }
-.bc-item { color: #9aa5b4; }
-.bc-item.active { color: #1a2332; font-weight: 500; }
-.bc-sep { color: #c8d0dc; }
-.top-center { flex: 1; display: flex; justify-content: center; }
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+.bc-item {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.bc-item.active {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.bc-sep {
+  color: #cbd5e1;
+}
+
+.top-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
 .search-box {
-  display: flex; align-items: center; gap: 8px;
-  background: #f4f7fa; border: 1px solid #e8ecf2;
-  border-radius: 8px; padding: 8px 14px; width: 260px; transition: all 0.2s;
+  width: min(100%, 420px);
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  background: rgba(248, 250, 252, 0.95);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 16px;
+  color: #94a3b8;
+  transition: all .2s ease;
 }
-.search-box:focus-within { border-color: #3b9eff; background: #fff; box-shadow: 0 0 0 3px rgba(59,158,255,.1); }
+
+.search-box:focus-within {
+  border-color: rgba(59, 130, 246, 0.48);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.08);
+}
+
 .search-input {
-  border: none; background: transparent; font-size: 13.5px;
-  color: #1a2332; outline: none; width: 100%; font-family: inherit;
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  color: var(--color-text-main);
+  outline: none;
+  width: 100%;
+  font-family: inherit;
 }
-.search-input::placeholder { color: #b0bcc8; }
-.top-right { display: flex; align-items: center; gap: 12px; }
+
+.search-input::placeholder {
+  color: #94a3b8;
+}
+
+.top-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .icon-btn {
-  width: 36px; height: 36px; border: 1px solid #edf0f5; border-radius: 8px;
-  background: #fff; display: flex; align-items: center; justify-content: center;
-  color: #6b7a90; cursor: pointer; transition: all .18s;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  cursor: pointer;
+  transition: all .18s ease;
 }
-.icon-btn:hover { background: #f5f8ff; color: #3b9eff; border-color: #d0e4ff; }
-.notify { position: relative; }
+
+.icon-btn:hover {
+  transform: translateY(-1px);
+  color: #2563eb;
+  border-color: rgba(59, 130, 246, 0.28);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.12);
+}
+
+.notify {
+  position: relative;
+}
+
 .notify-badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: -2px;
+  right: -2px;
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #f5615a;
+  background: #f43f5e;
   color: #fff;
   border-radius: 999px;
-  border: 1.5px solid #fff;
+  border: 2px solid #fff;
   font-size: 11px;
   font-weight: 800;
   line-height: 1;
 }
-.notify-panel {
-  position: fixed; right: 24px; top: 72px; width: 360px;
-  background: #fff; border: 1px solid #edf0f5; border-radius: 10px;
-  box-shadow: 0 12px 32px rgba(17, 27, 39, 0.12); z-index: 9999;
-}
-.np-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid #f0f3f8; }
-.np-mark { border: none; background: transparent; color: #3b9eff; cursor: pointer; font-size: 12px; }
-.np-list { max-height: 320px; overflow: auto; }
-.np-empty { padding: 18px; color: #6b7a90; font-size: 13px; text-align: center; }
-.np-item { display: flex; gap: 10px; padding: 10px 12px; cursor: pointer; }
-.np-item.unread { background: #f8fbff; }
-.np-tag { width: 56px; height: 22px; border-radius: 999px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; }
-.np-tag.info { background: #3b9eff; }
-.np-tag.warn { background: #f59e0b; }
-.np-tag.error { background: #e85c5c; }
-.np-content { flex: 1; }
-.np-title { font-size: 13px; font-weight: 700; color: #1a2332; margin-bottom: 2px; }
-.np-desc { font-size: 12px; color: #6b7a90; }
-.np-time { font-size: 11px; color: #9aa5b4; }
-.user-info {
-  display: flex; align-items: center; gap: 12px; margin-left: 8px;
-  cursor: pointer; padding-left: 12px; border-left: 1px solid #edf0f5;
-}
-.user-text { text-align: right; }
-.user-name  {
-  display: flex; align-items: center; justify-content: flex-end; gap: 6px;
-  font-size: 13.5px; font-weight: 600; color: #1a2332;
-}
-.user-email { display: block; font-size: 11.5px; color: #9aa5b4; }
-.user-avatar { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #e8ecf2; }
 
-/* 角色徽标 */
+.notify-panel {
+  position: fixed;
+  right: 24px;
+  top: 82px;
+  width: 360px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(226, 232, 240, 0.92);
+  border-radius: 18px;
+  box-shadow: 0 24px 50px rgba(15, 23, 42, 0.14);
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.np-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.82);
+}
+
+.np-mark {
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.np-list {
+  max-height: 320px;
+  overflow: auto;
+}
+
+.np-empty {
+  padding: 18px;
+  color: var(--color-text-sub);
+  font-size: 13px;
+  text-align: center;
+}
+
+.np-item {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.np-item.unread {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.np-tag {
+  width: 56px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.np-tag.info { background: #3b82f6; }
+.np-tag.warn { background: #f59e0b; }
+.np-tag.error { background: #ef4444; }
+
+.np-content { flex: 1; }
+.np-title { font-size: 13px; font-weight: 700; color: var(--color-text-main); margin-bottom: 2px; }
+.np-desc { font-size: 12px; color: var(--color-text-sub); }
+.np-time { font-size: 11px; color: var(--color-text-light); }
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 2px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.user-text {
+  text-align: right;
+}
+
+.user-name {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(226, 232, 240, 0.96);
+}
+
 .role-badge {
   display: inline-block;
-  padding: 1px 7px;
-  border-radius: 20px;
+  padding: 2px 8px;
+  border-radius: 999px;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
 }
-.badge-admin { background: #1677ff; color: #fff; }
-.badge-user  { background: #f0f0f0; color: #6b7280; }
 
-/* CONTENT */
-.content-container { flex: 1; padding: 28px; overflow-y: auto; }
-
-/* FOOTER */
-.main-footer {
-  height: 50px; background: #fff; border-top: 1px solid #edf0f5;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 0 28px; font-size: 12.5px; color: #9aa5b4;
+.badge-admin {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
 }
-.footer-links { display: flex; gap: 20px; }
-.footer-links a { color: #9aa5b4; text-decoration: none; transition: color 0.2s; }
-.footer-links a:hover { color: #3b9eff; }
+
+.badge-user {
+  background: rgba(148, 163, 184, 0.14);
+  color: #64748b;
+}
+
+.content-container {
+  flex: 1;
+  padding: 28px;
+  overflow-y: auto;
+}
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+@media (max-width: 1200px) {
+  .sidebar {
+    width: 220px;
+  }
+
+  .topbar {
+    padding: 0 18px;
+  }
+
+  .content-container {
+    padding: 20px;
+  }
+}
 </style>

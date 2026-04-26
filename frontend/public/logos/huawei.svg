@@ -1,0 +1,11 @@
+<svg width="108" height="32" viewBox="0 0 108 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="108" height="32" rx="10" fill="white"/>
+  <g transform="translate(8 7)">
+    <path d="M10 0L12.8 5.2L10 18L7.2 5.2L10 0Z" fill="#CF0A2C"/>
+    <path d="M3.8 2.4L8 6L9.4 18L4.2 7.8L3.8 2.4Z" fill="#CF0A2C"/>
+    <path d="M16.2 2.4L12 6L10.6 18L15.8 7.8L16.2 2.4Z" fill="#CF0A2C"/>
+    <path d="M0.8 7L6.2 8.6L9 18L1.8 11.2L0.8 7Z" fill="#CF0A2C"/>
+    <path d="M19.2 7L13.8 8.6L11 18L18.2 11.2L19.2 7Z" fill="#CF0A2C"/>
+  </g>
+  <text x="34" y="20.5" fill="#CF0A2C" font-size="14" font-family="Arial, Helvetica, sans-serif" font-weight="800" letter-spacing="0.06em">HUAWEI</text>
+</svg>

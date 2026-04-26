@@ -30,27 +30,35 @@
         </div>
 
         <div class="video-container" :class="viewMode + '-layout'">
-          <div class="v-card" v-for="cam in cameraList" :key="cam.id" :class="{ 'alert-border': cam.hasAlert && showLabels }">
-            <img :src="cam.cover" class="v-stream">
-            
-            <template v-if="cam.hasAlert && showLabels">
-              <div class="ai-box smoking pulse-red"><span class="tag red">SMOKING 94.5%</span></div>
-              <div class="ai-box person"><span class="tag blue">PERSON 98.2%</span></div>
-            </template>
-
-            <div class="v-overlay">
-              <div class="vo-header">
-                <div class="cam-info-label">
-                  <span class="dot-indicator" :class="cam.status"></span>
-                  <span class="name">{{ cam.name }}</span>
+          <template v-if="selectedCams.length > 0">
+            <div class="v-card" v-for="cam in selectedCams" :key="cam.id">
+              <video
+                v-if="cam.stream_kind === 'file'"
+                :src="buildStreamUrl(cam)"
+                style="width: 100%; height: 100%; object-fit: cover;"
+                controls
+                muted
+                autoplay
+                loop
+                playsinline
+              />
+              <img v-else :src="buildStreamUrl(cam)" style="width: 100%; height: 100%; object-fit: cover;" />
+              <div class="v-overlay">
+                <div class="vo-header">
+                  <div class="cam-info-label">
+                    <span class="dot-indicator" :class="cam.status"></span>
+                    <span class="name">{{ cam.name }}</span>
+                  </div>
+                  <span class="spec-label">MJPEG</span>
                 </div>
-                <span class="spec-label">1080P / 25fps</span>
+                <div class="vo-footer">{{ new Date().toLocaleString() }}</div>
               </div>
-              <div class="vo-footer">2024-05-20 14:30:16</div>
-              <div class="vo-alert-tag" v-if="cam.hasAlert && showLabels">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                检测到违规吸烟
-              </div>
+            </div>
+          </template>
+          <div class="v-card empty" v-else>
+            <div class="empty-placeholder">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#e2e8f0" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <p>请从右侧列表中选择要监控的摄像头</p>
             </div>
           </div>
         </div>
@@ -67,7 +75,7 @@
       <aside class="right-panel">
         <div class="panel-header">
           <h3 class="panel-title">设备列表</h3>
-          <span class="online-status">5 / 6 在线</span>
+          <span class="online-status">{{ onlineCount }} / {{ totalCount }} 在线</span>
         </div>
 
         <div class="tree-container">
@@ -77,20 +85,45 @@
               <span class="group-count">{{ group.devices.length }}</span>
             </div>
             
-            <div class="device-node" v-for="dev in group.devices" :key="dev.id">
+            <div class="device-node" v-for="dev in group.devices" :key="dev.id" @click="selectDevice(dev)" :class="{ active: isSelected(dev.id) }">
               <span class="status-dot" :class="dev.status"></span>
               <div class="device-details">
-                <span class="d-name" :class="{ 'red-text': dev.status === 'alert' }">{{ dev.name }}</span>
+                <span class="d-name">{{ dev.name }}</span>
                 <span class="d-loc"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> {{ dev.loc }}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="suggestion-card">
-          <div class="sug-title">智能巡检建议</div>
-          <p class="sug-desc">系统检测到“仓库区-3号库入口”环境光线变化较大，建议调整阈值。</p>
-          <a href="#" class="sug-btn" @click.prevent="$router.push('/camera/config')">立即调整 &rarr;</a>
+        <div class="alert-result-card" v-if="false">
+          <div class="arc-header">
+            <div class="arc-title-row">
+              <span class="pulse-red-dot"></span>
+              <h3 class="arc-title">实时检测结果</h3>
+              <span class="arc-status-tag" :class="{ confirmed: latestAlert.is_confirmed }">Detected</span>
+            </div>
+            <p class="arc-time">{{ latestAlert.detected_at }}</p>
+          </div>
+          
+          <div class="arc-body">
+            <div class="report-box">
+              <div class="rb-label">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                检测到违规行为 (置信度: {{ latestAlert.confidence }}%)
+              </div>
+              <p class="rb-content">{{ latestAlert.llm_report }}</p>
+            </div>
+          </div>
+
+          <div class="arc-footer">
+             <button class="arc-btn-outline" @click="$router.push('/detection/tasks')">查看详情</button>
+          </div>
+        </div>
+
+        <div class="suggestion-card" v-if="suggestion">
+          <div class="sug-title">{{ suggestion.title }}</div>
+          <p class="sug-desc">{{ suggestion.desc }}</p>
+          <a href="#" class="sug-btn" @click.prevent="$router.push(suggestion.action_url)">{{ suggestion.action_text }} &rarr;</a>
         </div>
 
         <button class="btn-add-ghost" @click="$router.push('/camera/config')">
@@ -103,63 +136,163 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import axios from 'axios'
+import { buildApiUrl } from '@/utils/http'
+
+const authHeaders = () => {
+  const access = localStorage.getItem('access_token') || ''
+  return access ? { Authorization: `Bearer ${access}` } : {}
+}
 
 const viewMode = ref('grid')
 const showLabels = ref(true)
 
-// 模拟真实数据源
-const cameraList = ref([
-  { id: 1, name: '行政楼-A1大堂', status: 'online', hasAlert: false, cover: 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80' },
-  { id: 2, name: '仓库区-3号库入口', status: 'online', hasAlert: true, cover: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?auto=format&fit=crop&w=800&q=80' },
-  { id: 3, name: '行政楼-西侧走廊', status: 'online', hasAlert: false, cover: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80' },
-  { id: 4, name: '园区-东侧吸烟亭', status: 'online', hasAlert: false, cover: 'https://images.unsplash.com/photo-1577495508048-b635879837f1?auto=format&fit=crop&w=800&q=80' }
-])
+const cameraList = ref([])
+const selectedCams = ref([])
 
-// 🌟 逻辑联动：自动计算连接路数
-const activeCameraCount = computed(() => cameraList.value.length)
+const activeCameraCount = computed(() => selectedCams.value.length)
 
-const deviceTree = [
-  { 
-    name: '办公行政区', 
-    devices: [
-      { id: 101, name: 'A1号楼大堂', loc: '1F 大堂', status: 'online' },
-      { id: 102, name: '西侧走廊', loc: '2F 走廊', status: 'online' }
-    ] 
-  },
-  { 
-    name: '生产仓库区', 
-    devices: [
-      { id: 201, name: '3号仓库入口', loc: '仓库区外围', status: 'alert' }
-    ] 
+const deviceTree = ref([])
+const onlineCount = ref(0)
+const totalCount = ref(0)
+const suggestion = ref(null)
+
+const buildStreamUrl = (cam) => {
+  const streamUrl = String(cam.stream_url || '')
+  if (cam.stream_kind === 'file' || streamUrl.startsWith('uploads/camera-files/')) {
+    return buildApiUrl(`/media/${streamUrl.replace(/^\/+/, '')}`)
   }
-]
+  return buildApiUrl(`/api/cameras/${cam.id}/stream/?t=${Date.now()}`)
+}
+
+const isSelected = (id) => selectedCams.value.some(c => c.id === id)
+
+const selectDevice = (dev) => {
+  const index = selectedCams.value.findIndex(c => c.id === dev.id)
+  if (index > -1) {
+    selectedCams.value.splice(index, 1)
+  } else {
+    // 限制最多显示 4 路（可选，根据需求调整）
+    if (selectedCams.value.length >= 4) {
+      selectedCams.value.shift()
+    }
+    selectedCams.value.push(dev)
+  }
+}
+
+const fetchSuggestions = async () => {
+  try {
+    const res = await axios.get('/api/cameras/suggestions/', { headers: authHeaders() })
+    const payload = res.data || {}
+    if (Array.isArray(payload.results) && payload.results.length > 0) {
+      const first = payload.results[0]
+      suggestion.value = {
+        title: `推荐关注：${first.name}`,
+        desc: first.region ? `所属区域：${first.region}` : '已为你加载摄像头建议',
+        action_text: '前往摄像头配置',
+        action_url: '/camera/config',
+      }
+    } else {
+      suggestion.value = null
+    }
+  } catch {
+    suggestion.value = null
+  }
+}
+
+const fetchStats = async () => {
+  try {
+    const res = await axios.get('/api/cameras/stats/', { headers: authHeaders() })
+    onlineCount.value = Number(res.data?.online_count || 0)
+    totalCount.value = Number(res.data?.total_count || 0)
+  } catch {
+    onlineCount.value = 0
+    totalCount.value = 0
+  }
+}
+
+const fetchGrouped = async () => {
+  try {
+    const res = await axios.get('/api/cameras/grouped/', { headers: authHeaders() })
+    const payload = res.data || {}
+    const rawGroups = Array.isArray(payload.results)
+      ? payload.results
+      : Object.keys(payload).map((k) => ({ region: k, items: Array.isArray(payload[k]) ? payload[k] : [] }))
+
+    const groups = rawGroups.map((group) => {
+      const items = Array.isArray(group.items)
+        ? group.items
+        : Array.isArray(group.devices)
+          ? group.devices
+          : []
+      return {
+        name: group.region || group.name || '未分组',
+        devices: items.map(it => ({
+          id: it.id,
+          name: it.name,
+          loc: it.region || group.region || '',
+          stream_url: it.stream_url || '',
+          stream_kind: it.stream_kind || 'stream',
+          status: it.effective_is_online ? 'online' : 'offline'
+        }))
+      }
+    })
+    deviceTree.value = groups
+    
+    const allDevices = groups.flatMap(g => g.devices)
+    const allOnline = allDevices.filter(d => d.status === 'online')
+    selectedCams.value = (allOnline.length > 0 ? allOnline : allDevices).slice(0, 4)
+  } catch {
+    deviceTree.value = []
+    selectedCams.value = []
+  }
+}
+
+onMounted(async () => {
+  await fetchStats()
+  await fetchGrouped()
+  await fetchSuggestions()
+})
+
+onUnmounted(() => {
+  // 移除不再需要的定时器
+})
 </script>
 
 <style scoped>
-.realtime-page { width: 100%; color: #1a2332; font-family: inherit; }
+.realtime-page { width: 100%; color: var(--color-text-main); font-family: inherit; }
 .layout-grid { display: grid; grid-template-columns: 1fr 320px; gap: 24px; align-items: flex-start; }
 
 /* 左侧样式纠偏 */
 .mh-left { display: flex; align-items: baseline; gap: 16px; margin-bottom: 16px; }
 .mh-title { font-size: 20px; font-weight: 700; margin: 0; display: flex; align-items: baseline; gap: 8px;}
-.count-tag { color: #6b7a90; font-size: 16px; font-weight: 500; }
-.live-status-pill { display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #eff6ff; color: #3b9eff; border-radius: 20px; font-size: 12px; font-weight: 600; transform: translateY(-2px); }
-.pulse-dot { width: 6px; height: 6px; background: #3b9eff; border-radius: 50%; animation: blink 1.5s infinite; }
+.count-tag { color: var(--color-text-sub); font-size: 16px; font-weight: 500; }
+.live-status-pill { display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: rgba(59,158,255,0.1); color: var(--color-primary); border-radius: 20px; font-size: 12px; font-weight: 600; transform: translateY(-2px); }
+.pulse-dot { width: 6px; height: 6px; background: var(--color-primary); border-radius: 50%; animation: blink 1.5s infinite; }
 @keyframes blink { 0%, 100% { opacity: 1 } 50% { opacity: 0.3 } }
 
 /* 药丸按钮组 */
-.pill-group { display: flex; align-items: center; background: #fff; border: 1px solid #e8ecf2; border-radius: 10px; padding: 4px; gap: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); }
-.p-btn { display: flex; align-items: center; gap: 6px; border: none; background: transparent; padding: 6px 12px; font-size: 12px; font-weight: 600; color: #4a5568; cursor: pointer; border-radius: 6px; transition: all 0.2s; }
-.p-btn.active { background: #f4f7fa; color: #1a2332; }
-.p-divider { width: 1px; height: 16px; background: #e8ecf2; margin: 0 4px; }
-.text-muted { color: #9aa5b4; }
+.pill-group { display: flex; align-items: center; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 10px; padding: 4px; gap: 4px; box-shadow: var(--shadow-card); }
+.p-btn { display: flex; align-items: center; gap: 6px; border: none; background: transparent; padding: 6px 12px; font-size: 12px; font-weight: 600; color: var(--color-text-sub); cursor: pointer; border-radius: 6px; transition: all 0.2s; }
+.p-btn.active { background: var(--color-bg-page); color: var(--color-text-main); }
+.p-divider { width: 1px; height: 16px; background: var(--color-border); margin: 0 4px; }
+.text-muted { color: var(--color-text-light); }
 
 /* 视频网格与布局切换 */
-.video-container.grid-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-.video-container.list-layout { display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; }
+.video-container { display: grid; gap: 16px; margin-bottom: 24px; transition: all 0.3s ease; }
+
+.grid-layout { grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+.grid-layout:has(.v-card:nth-child(1):last-child) { grid-template-columns: 1fr; }
+.grid-layout:has(.v-card:nth-child(2):last-child) { grid-template-columns: 1fr 1fr; }
+.grid-layout:has(.v-card:nth-child(n+3)) { grid-template-columns: 1fr 1fr; }
+
+.list-layout { grid-template-columns: 1fr; }
 
 .v-card { position: relative; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; border: 1.5px solid transparent; transition: all 0.3s; }
+.v-card.empty { background: var(--color-bg-page); border: 1.5px dashed var(--color-border); display: flex; align-items: center; justify-content: center; }
+.empty-placeholder { text-align: center; color: var(--color-text-light); }
+.empty-placeholder p { margin-top: 12px; font-size: 14px; }
 .v-card.alert-border { border-color: #e85c5c; box-shadow: 0 0 20px rgba(232,92,92,0.25); }
 .v-stream { width: 100%; height: 100%; object-fit: cover; opacity: 0.85; }
 
@@ -187,20 +320,20 @@ const deviceTree = [
 .tag.blue { background: #3b9eff; }
 
 /* 底部状态条 */
-.status-footer { display: flex; align-items: center; gap: 16px; background: #f8fafc; padding: 18px 24px; border-radius: 12px; border: 1px solid #edf0f5; }
-.s-text h4 { margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #0d1724; }
-.s-text p { margin: 0; font-size: 12px; color: #64748b; font-family: monospace; }
+.status-footer { display: flex; align-items: center; gap: 16px; background: var(--color-bg-page); padding: 18px 24px; border-radius: 12px; border: 1px solid var(--color-border); }
+.s-text h4 { margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: var(--color-text-main); }
+.s-text p { margin: 0; font-size: 12px; color: var(--color-text-sub); font-family: monospace; }
 
 /* ================= 右侧面板纠偏 ================= */
-.right-panel { background: #fff; border: 1px solid #edf2f7; border-radius: 12px; padding: 24px; box-shadow: 0 2px 10px rgba(0,0,0,0.01); display: flex; flex-direction: column; gap: 24px; }
-.panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; }
+.right-panel { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 12px; padding: 24px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; gap: 24px; }
+.panel-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); padding-bottom: 16px; }
 .panel-title { font-size: 16px; font-weight: 700; margin: 0; }
-.online-status { font-size: 12px; color: #64748b; font-weight: 600; background: #f8fafc; padding: 4px 10px; border-radius: 20px; border: 1px solid #f1f5f9; }
+.online-status { font-size: 12px; color: var(--color-text-sub); font-weight: 600; background: var(--color-bg-page); padding: 4px 10px; border-radius: 20px; border: 1px solid var(--color-border); }
 
 .tree-group { display: flex; flex-direction: column; gap: 12px; }
 .group-header { display: flex; justify-content: space-between; align-items: center; }
-.group-name { font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
-.group-count { font-size: 10px; color: #94a3b8; background: #f1f5f9; padding: 1px 6px; border-radius: 4px; }
+.group-name { font-size: 12px; font-weight: 600; color: var(--color-text-light); text-transform: uppercase; letter-spacing: 0.5px; }
+.group-count { font-size: 10px; color: var(--color-text-light); background: var(--color-bg-page); padding: 1px 6px; border-radius: 4px; }
 
 /* 🌟 设备节点样式完全还原 UI */
 .device-node { display: flex; align-items: flex-start; gap: 12px; padding: 4px 0; cursor: pointer; transition: opacity 0.2s; }
@@ -209,15 +342,36 @@ const deviceTree = [
 .status-dot.online { background: #10b981; }
 .status-dot.alert { background: #e85c5c; animation: blink 1s infinite; }
 .device-details { display: flex; flex-direction: column; gap: 2px; }
-.d-name { font-size: 14px; font-weight: 500; color: #1e293b; }
+.d-name { font-size: 14px; font-weight: 500; color: var(--color-text-main); }
 .red-text { color: #e85c5c; font-weight: 600; }
-.d-loc { font-size: 11px; color: #94a3b8; display: flex; align-items: center; gap: 4px; }
+.d-loc { font-size: 11px; color: var(--color-text-light); display: flex; align-items: center; gap: 4px; }
 
-.suggestion-card { background: #f0f7ff; border: 1px solid #d0e4ff; border-radius: 10px; padding: 16px; }
-.sug-title { font-size: 13px; font-weight: 700; color: #3b9eff; margin-bottom: 8px; }
-.sug-desc { font-size: 12px; color: #475569; line-height: 1.5; margin: 0 0 12px 0; }
-.sug-btn { font-size: 12px; color: #3b9eff; font-weight: 600; text-decoration: none; }
+.suggestion-card { background: rgba(59,158,255,0.1); border: 1px solid rgba(59,158,255,0.2); border-radius: 10px; padding: 16px; }
+.sug-title { font-size: 13px; font-weight: 700; color: var(--color-primary); margin-bottom: 8px; }
+.sug-desc { font-size: 12px; color: var(--color-text-sub); line-height: 1.5; margin: 0 0 12px 0; }
+.sug-btn { font-size: 12px; color: var(--color-primary); font-weight: 600; text-decoration: none; }
 
-.btn-add-ghost { height: 44px; background: #fff; border: 1px dashed #cbd5e1; border-radius: 8px; font-size: 13px; font-weight: 600; color: #64748b; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.btn-add-ghost:hover { border-color: #3b9eff; color: #3b9eff; background: #f0f7ff; }
+.btn-add-ghost { height: 44px; background: var(--color-bg-card); border: 1px dashed var(--color-border); border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--color-text-sub); cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-add-ghost:hover { border-color: var(--color-primary); color: var(--color-primary); background: rgba(59,158,255,0.05); }
+
+/* 🌟 实时报警结果卡片样式 */
+.alert-result-card { background: var(--color-bg-card); border: 1.5px solid #ffedec; border-radius: 12px; padding: 16px; box-shadow: var(--shadow-card); }
+.arc-header { margin-bottom: 12px; }
+.arc-title-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.pulse-red-dot { width: 8px; height: 8px; background: #e85c5c; border-radius: 50%; animation: pulse-red 1.5s infinite; }
+@keyframes pulse-red { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(232,92,92,0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(232,92,92,0); } 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(232,92,92,0); } }
+.arc-title { font-size: 15px; font-weight: 700; color: var(--color-text-main); margin: 0; }
+.arc-status-tag { margin-left: auto; font-size: 11px; font-weight: 700; color: #e85c5c; background: #fff1f0; padding: 2px 8px; border-radius: 4px; border: 1px solid #ffccc7; }
+.arc-time { font-size: 11px; color: var(--color-text-light); margin: 0; font-family: monospace; }
+
+.arc-body { margin-bottom: 16px; }
+.report-box { background: rgba(232,92,92,0.05); border: 1px solid rgba(232,92,92,0.1); border-radius: 8px; padding: 12px; }
+.rb-label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #e85c5c; margin-bottom: 8px; }
+.rb-content { font-size: 12px; color: var(--color-text-sub); line-height: 1.6; margin: 0; white-space: pre-line; }
+
+.arc-footer { display: flex; justify-content: flex-end; }
+.arc-btn-outline { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 6px; padding: 6px 16px; font-size: 12px; font-weight: 600; color: var(--color-text-sub); cursor: pointer; transition: all 0.2s; }
+.arc-btn-outline:hover { border-color: var(--color-primary); color: var(--color-primary); background: rgba(59,158,255,0.05); }
+
+.device-node.active { background: rgba(59,158,255,0.1); border-radius: 8px; padding: 4px 8px; margin-left: -8px; width: calc(100% + 16px); }
 </style>

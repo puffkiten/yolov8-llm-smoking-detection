@@ -24,13 +24,14 @@
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import BaseButton from '@/components/ui/BaseButton.vue'
+import { buildApiUrl } from '@/utils/http'
 
 const router = useRouter()
 
 const startGoogleLogin = () => {
   // OAuth 必须走浏览器跳转，不能纯 XHR
   // 后端端点会 302 跳转到 Google
-  const url = 'http://127.0.0.1:8000/api/auth/google/login'
+  const url = buildApiUrl('/api/auth/google/login')
   ElMessage.info('正在跳转到 Google 授权页...')
   window.location.href = url
 }

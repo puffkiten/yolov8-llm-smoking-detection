@@ -89,9 +89,9 @@
             </div>
             <h2>图片检测 (Image)</h2>
           </div>
-          <span class="tag">批处理</span>
+          <span class="tag">图像处理</span>
         </div>
-        <p class="card-desc">支持单张或批量图片上传，快速识别静态场景中的吸烟行为。</p>
+        <p class="card-desc">支持图片上传，快速识别静态场景中的吸烟行为。</p>
 
         <div class="form-group">
           <label>任务名称</label>
@@ -266,7 +266,7 @@ const submitToBackend = async (type) => {
   form.uploadProgress = 0
 
   try {
-    const response = await axios.post('http://127.0.0.1:8000/api/detection/upload', formData, {
+    const response = await axios.post('/api/detection/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data', ...authHeaders() },
       onUploadProgress: (progressEvent) => {
         const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
@@ -275,10 +275,13 @@ const submitToBackend = async (type) => {
     })
     
     if(response.data.code === 200) {
-       ElMessage.success('任务提交成功，请前往「检测任务」查看结果')
+       const createdCount = Number(response.data.created_count || 1)
+       ElMessage.success(createdCount > 1 ? `任务提交成功，已创建 ${createdCount} 个图片检测任务` : '任务提交成功，请前往「检测任务」查看结果')
     } else {
        ElMessage.info('任务已提交')
     }
+
+    router.push('/detection/tasks')
     
     // 提交成功后重置表单（可选）
     if(type === 'video') {

@@ -16,6 +16,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 
 
 token_generator = PasswordResetTokenGenerator()
@@ -340,6 +341,121 @@ def users_list(request):
             "email": u.email,
             "username": u.username,
             "is_staff": u.is_staff,
+            "is_active": u.is_active,
             "date_joined": getattr(u, "date_joined", None),
         })
     return Response({"results": items}, status=200)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def users_create(request):
+    if not request.user.is_staff:
+        raise PermissionDenied("仅管理员可新增用户")
+
+    email = (request.data.get("email") or "").strip()
+    username = (request.data.get("username") or "").strip()
+    password = (request.data.get("password") or "").strip()
+    is_staff = bool(request.data.get("is_staff", False))
+    is_active = bool(request.data.get("is_active", True))
+
+    if not email or not username or not password:
+        return Response({"detail": "请填写邮箱、用户名和密码"}, status=status.HTTP_400_BAD_REQUEST)
+    if len(password) < 6:
+        return Response({"detail": "密码至少 6 位"}, status=status.HTTP_400_BAD_REQUEST)
+
+    User = get_user_model()
+    if User.objects.filter(email=email).exists():
+        return Response({"detail": "该邮箱已被注册"}, status=status.HTTP_400_BAD_REQUEST)
+    if User.objects.filter(username=username).exists():
+        return Response({"detail": "该用户名已被占用"}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = User.objects.create(username=username, email=email, is_staff=is_staff, is_active=is_active)
+    user.set_password(password)
+    user.save()
+
+    return Response({
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "is_staff": user.is_staff,
+        "is_active": user.is_active,
+        "date_joined": getattr(user, "date_joined", None),
+    }, status=status.HTTP_201_CREATED)
+
+
+@api_view(["PATCH"])
+@permission_classes([IsAuthenticated])
+def users_update(request, user_id: int):
+    if not request.user.is_staff:
+        raise PermissionDenied("仅管理员可编辑用户")
+
+    User = get_user_model()
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return Response({"detail": "用户不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+    username = request.data.get("username")
+    email = request.data.get("email")
+    is_staff = request.data.get("is_staff")
+    is_active = request.data.get("is_active")
+    password = (request.data.get("password") or "").strip()
+
+    if username is not None:
+        username = str(username).strip()
+        if not username:
+            return Response({"detail": "用户名不能为空"}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(username=username).exclude(pk=user.pk).exists():
+            return Response({"detail": "该用户名已被占用"}, status=status.HTTP_400_BAD_REQUEST)
+        user.username = username
+
+    if email is not None:
+        email = str(email).strip()
+        if not email:
+            return Response({"detail": "邮箱不能为空"}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(email=email).exclude(pk=user.pk).exists():
+            return Response({"detail": "该邮箱已被注册"}, status=status.HTTP_400_BAD_REQUEST)
+        user.email = email
+
+    if is_staff is not None:
+        user.is_staff = bool(is_staff)
+
+    if is_active is not None:
+        if user.pk == request.user.pk and not bool(is_active):
+            return Response({"detail": "不能禁用当前登录账号"}, status=status.HTTP_400_BAD_REQUEST)
+        user.is_active = bool(is_active)
+
+    if password:
+        if len(password) < 6:
+            return Response({"detail": "密码至少 6 位"}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(password)
+
+    user.save()
+    return Response({
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "is_staff": user.is_staff,
+        "is_active": user.is_active,
+        "date_joined": getattr(user, "date_joined", None),
+    }, status=200)
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def users_delete(request, user_id: int):
+    if not request.user.is_staff:
+        raise PermissionDenied("仅管理员可删除用户")
+
+    User = get_user_model()
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return Response({"detail": "用户不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+    if user.pk == request.user.pk:
+        return Response({"detail": "不能删除当前登录账号"}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)

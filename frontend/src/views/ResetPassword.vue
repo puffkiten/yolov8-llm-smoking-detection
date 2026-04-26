@@ -91,7 +91,7 @@ const handleSubmit = async () => {
 
   isSubmitting.value = true
   try {
-    await axios.post('http://127.0.0.1:8000/api/auth/password-reset/confirm', {
+    await axios.post('/api/auth/password-reset/confirm', {
       uid: uid.value,
       token: token.value,
       new_password: pwd1.value
