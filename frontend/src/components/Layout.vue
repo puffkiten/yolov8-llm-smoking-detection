@@ -51,8 +51,22 @@
           </div>
           <div
             class="nav-item"
-            :class="{ active: route.path === '/detection/upload' || route.path === '/detection/tasks' }"
+            :class="{ active: route.path === '/detection/upload' || route.path === '/detection/launch' }"
             @click="router.push('/detection/upload')"
+          >
+            <span class="nav-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14"/>
+                <path d="M5 12h14"/>
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+              </svg>
+            </span>
+            <span>发起检测</span>
+          </div>
+          <div
+            class="nav-item"
+            :class="{ active: route.path === '/detection/tasks' || route.path.includes('/task/detail/') }"
+            @click="router.push('/detection/tasks')"
           >
             <span class="nav-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -272,7 +286,11 @@ const handleSearch = () => {
     router.push('/camera/realtime')
     return
   }
-  if (kw.includes('任务') || kw.includes('检测') || lower.includes('detection')) {
+  if (kw.includes('任务') || lower.includes('task')) {
+    router.push('/detection/tasks')
+    return
+  }
+  if (kw.includes('发起') || kw.includes('新检测') || lower.includes('upload') || lower.includes('launch') || kw.includes('检测')) {
     router.push('/detection/upload')
     return
   }
@@ -412,7 +430,8 @@ const handleLogout = () => { router.push('/login') }
 const currentRouteName = computed(() => {
   if (route.path === '/dashboard') return '仪表板'
   if (route.path.includes('/camera/realtime')) return '实时监控'
-  if (route.path.includes('/detection/upload') || route.path.includes('/detection/tasks')) return '检测任务'
+  if (route.path.includes('/detection/upload') || route.path.includes('/detection/launch')) return '发起新检测'
+  if (route.path.includes('/detection/tasks') || route.path.includes('/task/detail/')) return '检测任务'
   if (route.path.includes('/camera/config')) return '摄像头配置'
   if (route.path.includes('/system/ai-models')) return 'AI 模型管理'
   if (route.path.includes('/system/users')) return '系统设置'
@@ -460,7 +479,7 @@ onUnmounted(() => {
 }
 
 .sidebar {
-  width: 248px;
+  width: 232px;
   flex-shrink: 0;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(20px);
@@ -478,8 +497,8 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 18px 22px;
-  min-height: 74px;
+  padding: 16px 18px;
+  min-height: 68px;
   border-bottom: 1px solid rgba(226, 232, 240, 0.78);
 }
 
@@ -500,7 +519,7 @@ onUnmounted(() => {
 }
 
 .logo-text {
-  font-size: 24px;
+  font-size: 21px;
   font-weight: 700;
   color: #2563eb;
   letter-spacing: -0.03em;
@@ -508,13 +527,13 @@ onUnmounted(() => {
 
 .sidebar-nav {
   flex: 1;
-  overflow-y: auto;
-  padding: 20px 14px 14px;
+  overflow-y: visible;
+  padding: 14px 12px 10px;
 }
 
 .nav-divider {
   height: 1px;
-  margin: 18px 24px;
+  margin: 12px 18px;
   background: linear-gradient(90deg, rgba(226, 232, 240, 0), rgba(226, 232, 240, 1), rgba(226, 232, 240, 0));
 }
 
@@ -523,9 +542,9 @@ onUnmounted(() => {
 }
 
 .nav-section-title {
-  padding: 0 24px 10px;
-  font-size: 14px;
-  line-height: 22px;
+  padding: 0 18px 8px;
+  font-size: 12px;
+  line-height: 18px;
   font-weight: 700;
   color: #64748b;
 }
@@ -539,12 +558,12 @@ onUnmounted(() => {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 56px;
-  padding: 0 22px;
-  border-radius: 18px;
-  font-size: 15px;
-  line-height: 24px;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 20px;
   font-weight: 600;
   color: var(--color-text-sub);
   cursor: pointer;
@@ -649,9 +668,9 @@ onUnmounted(() => {
 }
 
 .sidebar-user-card {
-  margin: 8px 16px 12px;
-  padding: 14px;
-  border-radius: 16px;
+  margin: 6px 12px 10px;
+  padding: 12px;
+  border-radius: 14px;
   background: linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 0.96));
   border: 1px solid rgba(226, 232, 240, 0.96);
   display: flex;
@@ -660,14 +679,13 @@ onUnmounted(() => {
 }
 
 .sidebar-user-avatar {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   border: 2px solid rgba(226, 232, 240, 0.96);
 }
-
-.sidebar-user-name {
-  font-size: 15px;
+ .sidebar-user-name {
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-main);
 }
@@ -679,16 +697,16 @@ onUnmounted(() => {
 }
 
 .sidebar-logout {
-  margin: 0 16px 18px;
-  min-height: 46px;
+  margin: 0 12px 12px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
   border: 1px solid rgba(248, 113, 113, 0.28);
-  border-radius: 14px;
+  border-radius: 12px;
   background: #fff;
-  font-size: 14px;
+  font-size: 13px;
   color: #ef4444;
   cursor: pointer;
   font-weight: 600;

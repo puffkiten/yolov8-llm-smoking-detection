@@ -1,246 +1,212 @@
 <template>
-  <div class="task-detail-page">
-    
-    <div class="layout-grid">
-      <aside class="left-panel">
-        <div class="panel-card" ref="leftPanelRef">
-          
-          <div class="task-head">
-            <div class="head-row">
-              <span class="status-badge" :class="statusText === '检测中' ? 'processing' : statusText === '任务中断' ? 'failed' : 'success'">
-                <span v-if="statusText === '检测中'" class="spin"></span>
-                {{ statusText }}
-              </span>
-              <svg class="share-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" @click="shareReport">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                <polyline points="15 3 21 3 21 9"/>
-                <line x1="10" y1="14" x2="21" y2="3"/>
-              </svg>
-            </div>
-            <div class="id-row">
-              <h1 class="task-id">{{ runIndex }}</h1>
-              <div class="task-id-actions">
-                <button class="tiny-btn" @click="copyRunIndex">复制</button>
-                <button class="tiny-btn ghost" @click="clearRunIndex">清空</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="info-section">
-            <h3 class="section-title">核心参数</h3>
-            <ul class="info-list">
-              <li>
-                <div class="label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> 置信度阈值</div>
-                <div class="value">{{ taskInfo.confidence }}</div>
-              </li>
-              <li>
-                <div class="label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/></svg> 检测模型</div>
-                <div class="value">{{ taskInfo.model }}</div>
-              </li>
-              <li>
-                <div class="label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> 运行设备</div>
-                <div class="value">{{ taskInfo.device }}</div>
-              </li>
-            </ul>
-          </div>
-
-          <div class="info-section">
-            <h3 class="section-title">文件与耗时</h3>
-            <ul class="info-list">
-              <li>
-                <div class="label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg> 文件大小</div>
-                <div class="value">{{ fileSizeText }}</div>
-              </li>
-              <li>
-                <div class="label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg> 画面分辨率</div>
-                <div class="value">{{ resolutionText }}</div>
-              </li>
-              <li>
-                <div class="label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 处理耗时</div>
-                <div class="value">{{ processTimeText }}</div>
-              </li>
-            </ul>
-          </div>
-
-          <div class="info-section">
-            <h3 class="section-title">时间流水</h3>
-            <ul class="info-list">
-              <li>
-                <div class="label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> 创建时间</div>
-                <div class="value">{{ createdText }}</div>
-              </li>
-              <li>
-                <div class="label"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 完成时间</div>
-                <div class="value">{{ finishedText }}</div>
-              </li>
-            </ul>
-          </div>
-
-          <div class="action-buttons">
-            <button class="btn-primary" @click="handleExport">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              导出结果
-            </button>
-            <button class="btn-outline" @click="handleRetry">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.05"/></svg>
-              重新检测
-            </button>
-          </div>
-
-          <div class="alert-box" v-if="taskInfo.hasViolation || statusText === '任务中断'">
-            <div class="alert-header">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              {{ statusText === '任务中断' ? '检测中断' : '检测到违规行为' }}
-            </div>
-            <p class="alert-desc" v-if="statusText === '任务中断'">
-              <span>{{ friendlyErrorReason }}</span>
-              <span v-if="taskErrorMessage">（{{ taskErrorMessage }}）</span>
-            </p>
-            <p class="alert-desc" v-else>
-              <span v-if="llmReport">{{ llmReport }}</span>
-              <span v-else>YOLO 发现疑似吸烟目标，建议人工复核。</span>
-            </p>
-          </div>
-
-        </div>
-      </aside>
-
-      <main class="right-panel">
-        
-        <div class="image-card">
-          <div class="img-header">
-            <div class="img-title"><span class="dot gray"></span> 原始图像 (Original Source)</div>
-            <div class="img-subtitle">{{ isVideo ? '视频' : '图片' }}</div>
-          </div>
-          <div class="img-container" :style="{ height: imgHeight + 'px' }">
-            <img v-if="!isVideo" :src="originalUrl" alt="Original Source" class="source-img" :style="{ height: imgHeight + 'px' }">
-            <video v-else :src="originalUrl" class="source-video" controls :style="{ height: imgHeight + 'px' }"></video>
-          </div>
-        </div>
-
-        <div class="image-card">
-          <div class="img-header">
-            <div class="img-title"><span class="dot blue"></span> AI 检测结果 (Aero YOLOv8 Analysis)</div>
-            <div class="badge-blue" v-if="taskInfo.hasViolation">Detected</div>
-          </div>
-          <div class="no-dets" v-if="!isVideo && statusText !== '检测中' && detections.length === 0">
-            未检测到目标，可尝试降低置信度阈值（建议 0.3~0.5）
-          </div>
-          <div class="img-container relative-container" ref="aiContainerRef" :style="{ height: imgHeight + 'px' }">
-            <img v-if="!isVideo" ref="aiImgRef" :src="resultUrl" alt="AI Result" class="source-img" :style="{ height: imgHeight + 'px' }" @load="recomputeAiDrawRect">
-            <video v-else :src="resultUrl" class="source-video" controls :style="{ height: imgHeight + 'px' }"></video>
-            <div v-if="!isVideo" class="overlay">
-              <div v-for="(b, idx) in detections" :key="idx" class="bbox" :class="{ danger: Number(b.cls) === 0 }"
-                   :style="bboxStyle(b)">
-                <span class="bbox-label">{{ b.label }} {{ (b.conf * 100).toFixed(1) }}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="bottom-actions">
-          <button class="btn-back" @click="$router.push('/dashboard')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <polyline points="15 18 9 12 15 6"/>
-            </svg>
-            返回任务列表
-          </button>
-          <div class="bottom-right">
-            <div class="verify-state">
-              <span class="verify-label">核实状态</span>
-              <span class="verify-pill" :class="verifyStatus">{{ verifyTextCn(verifyStatus) }}</span>
-            </div>
-            <div class="verify-actions">
-              <button v-if="verifyStatus === 'pending'" class="btn-soft-success" :disabled="verifyUpdating" @click="markAsPass">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <polyline points="20 6 9 17 4 12"/>
-                </svg>
-                {{ verifyUpdating ? '提交中...' : '核实通过' }}
-              </button>
-              <button v-if="verifyStatus === 'pending'" class="btn-soft-danger" :disabled="verifyUpdating" @click="markAsViolation">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="18" y1="6" x2="6" y2="18"/>
-                  <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-                {{ verifyUpdating ? '提交中...' : '标记违规' }}
-              </button>
-              <div v-if="verifyStatus === 'verified'" class="verify-result">
-                <span class="verify-result-label">核实结果</span>
-                <span class="verify-result-pill" :class="verifyResult || ''">{{ verifyResultTextCn(verifyResult) }}</span>
-              </div>
-              <button
-                v-if="verifyStatus === 'verified'"
-                class="btn-cancel-verify"
-                :disabled="verifyUpdating"
-                @click="cancelVerify"
-              >
-                取消核实
-              </button>
-            </div>
-          </div>
-        </div>
-
-      </main>
+  <div class="tasks-page">
+    <div class="page-header">
+      <h1 class="page-title">检测任务</h1>
+      <p class="page-sub">查看 YOLOv8 + 大模型 对图片与视频的检测结果，并进行人工核实。</p>
     </div>
+
+    <section class="stats-grid">
+      <div class="stat-card"><div class="stat-label">总任务数</div><div class="stat-value">{{ stats.total }}</div><div class="stat-sub">全部检测任务</div></div>
+      <div class="stat-card"><div class="stat-label">待核实</div><div class="stat-value warn">{{ stats.pending }}</div><div class="stat-sub">待人工核实</div></div>
+      <div class="stat-card"><div class="stat-label">已核实</div><div class="stat-value success">{{ stats.verified }}</div><div class="stat-sub">已完成核实</div></div>
+      <div class="stat-card"><div class="stat-label">平均置信度</div><div class="stat-value">{{ avgConfidence }}</div><div class="stat-sub">近30天平均</div></div>
+    </section>
+
+    <section class="main-grid">
+      <div class="panel-card list-card">
+        <div class="section-head">
+          <h3>任务列表</h3>
+          <div class="toolbar">
+            <el-input v-model="keyword" placeholder="搜索任务名称、ID" clearable class="toolbar-input" @input="resetPagination" />
+            <el-select v-model="typeFilter" class="toolbar-select" @change="resetPagination">
+              <el-option label="全部类型" value="all" />
+              <el-option label="图片" value="image" />
+              <el-option label="视频" value="video" />
+            </el-select>
+            <el-select v-model="verifyFilter" class="toolbar-select" @change="resetPagination">
+              <el-option label="全部状态" value="all" />
+              <el-option label="待核实" value="pending" />
+              <el-option label="已核实" value="verified" />
+            </el-select>
+            <el-button @click="loadTasks">刷新</el-button>
+          </div>
+        </div>
+
+        <el-table :data="pagedTasks" v-loading="loading" empty-text="暂无任务数据" highlight-current-row @current-change="handleCurrentChange" :row-class-name="rowClassName">
+          <el-table-column prop="id" width="92">
+            <template #header>
+              <div class="id-sort-head" @click="toggleIdSortOrder">
+                <span>任务ID</span>
+                <span class="sort-indicator">{{ idSortOrder === 'asc' ? '↑' : '↓' }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="类型" width="68">
+            <template #default="{ row }">{{ row.type === 'video' ? '视频' : '图片' }}</template>
+          </el-table-column>
+          <el-table-column prop="name" label="任务名称" min-width="150" show-overflow-tooltip />
+          <el-table-column label="状态" width="84">
+            <template #default="{ row }"><el-tag size="small" :type="statusTag(row.status)" round>{{ statusText(row.status) }}</el-tag></template>
+          </el-table-column>
+          <el-table-column label="核实状态" width="88">
+            <template #default="{ row }"><el-tag size="small" :type="row.verify_status === 'pending' ? 'warning' : 'success'" round>{{ row.verify_status === 'pending' ? '待核实' : '已核实' }}</el-tag></template>
+          </el-table-column>
+          <el-table-column prop="created_at" label="时间" width="104" />
+          <el-table-column label="操作" width="70">
+            <template #default="{ row }"><el-button link type="primary" @click="selectTask(row.id)">查看</el-button></template>
+          </el-table-column>
+        </el-table>
+
+        <div class="pagination-wrap" v-if="filteredTasks.length">
+          <div class="pagination-left">共 {{ filteredTasks.length }} 条</div>
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[10, 20, 50]"
+            layout="sizes, prev, pager, next"
+            :total="filteredTasks.length"
+            small
+            @size-change="handlePageSizeChange"
+            @current-change="handlePageChange"
+          />
+        </div>
+      </div>
+
+      <div class="panel-card detail-card" v-loading="detailLoading">
+        <template v-if="selectedTask">
+          <div class="section-head detail-head">
+            <h3>任务核实</h3>
+            <div class="detail-model">分析引擎：YOLOv8 + {{ selectedTask.model || '大模型' }}</div>
+          </div>
+
+          <div class="preview-box image-preview-box" ref="previewBoxRef">
+            <template v-if="selectedTask.type === 'image'">
+              <img :src="selectedTask.result_url || selectedTask.original_url" class="preview-media" alt="preview" ref="previewImgRef" @load="updatePreviewRect" />
+              <div class="bbox-layer" v-if="bboxList.length">
+                <div v-for="(box, index) in bboxList" :key="`${box.label}-${index}`" class="bbox-item" :style="bboxStyle(box)">
+                  <span class="bbox-tag">{{ box.label }} {{ box.confidenceText }}</span>
+                </div>
+              </div>
+            </template>
+            <video v-else :src="selectedTask.result_url || selectedTask.original_url" class="preview-media" controls />
+          </div>
+
+          <div class="detail-info-grid detail-meta-grid">
+            <div class="meta-item"><span class="meta-label">任务ID</span><strong class="meta-value">{{ selectedTask.id }}</strong></div>
+            <div class="meta-item"><span class="meta-label">置信度</span><strong class="meta-value">{{ confidenceText(selectedTask.confidence) }}</strong></div>
+            <div class="meta-item"><span class="meta-label">检测时间</span><strong class="meta-value">{{ selectedTask.created_at }}</strong></div>
+            <div class="meta-item"><span class="meta-label">模型</span><strong class="meta-value">{{ selectedTask.model }}</strong></div>
+            <div class="meta-item"><span class="meta-label">类型</span><strong class="meta-value">{{ selectedTask.type === 'video' ? '视频' : '图片' }}</strong></div>
+            <div class="meta-item"><span class="meta-label">文件</span><strong class="meta-value ellipsis">{{ fileNameFromUrl(selectedTask.original_url) }}</strong></div>
+          </div>
+
+          <div class="analysis-box summary-box">
+            <div class="analysis-title">AI 分析结论</div>
+            <p>{{ latestReport }}</p>
+          </div>
+
+          <div class="verify-box verify-panel">
+            <div class="verify-title">人工核实</div>
+            <el-radio-group v-model="verifyChoice" class="verify-radios">
+              <el-radio value="violation">确认违规</el-radio>
+              <el-radio value="pass">误报</el-radio>
+              <el-radio value="pending">待复核</el-radio>
+            </el-radio-group>
+            <el-input v-model="verifyNote" type="textarea" :rows="3" placeholder="请输入核实备注（选填）" maxlength="200" show-word-limit />
+            <div class="verify-actions verify-action-row">
+              <el-button type="primary" :loading="verifyLoading" @click="submitVerify('pass')">确认核实</el-button>
+              <el-button :loading="verifyLoading" @click="submitVerify('violation')">标记误报</el-button>
+            </div>
+          </div>
+        </template>
+        <el-empty v-else description="请选择左侧任务查看详情" />
+      </div>
+    </section>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import axios from 'axios'
-import { useRoute, useRouter } from 'vue-router'
+
+const loading = ref(false)
+const detailLoading = ref(false)
+const verifyLoading = ref(false)
+const tasks = ref([])
+const selectedTask = ref(null)
+const keyword = ref('')
+const typeFilter = ref('all')
+const verifyFilter = ref('all')
+const verifyChoice = ref('pending')
+const verifyNote = ref('')
+const currentPage = ref(1)
+const pageSize = ref(10)
+const idSortOrder = ref('desc')
+const previewBoxRef = ref(null)
+const previewImgRef = ref(null)
+const previewRect = ref({ offsetX: 0, offsetY: 0, drawW: 0, drawH: 0 })
 
 const authHeaders = () => {
   const access = localStorage.getItem('access_token') || ''
   return access ? { Authorization: `Bearer ${access}` } : {}
 }
 
-const taskInfo = ref({
-  id: '',
-  confidence: '',
-  model: 'Aero-YOLO-v8s',
-  device: 'GPU',
-  fileSize: '',
-  resolution: '',
-  processTime: '',
-  createTime: '',
-  finishTime: '',
-  hasViolation: false
+const stats = computed(() => ({
+  total: tasks.value.length,
+  pending: tasks.value.filter((t) => t.verify_status === 'pending').length,
+  verified: tasks.value.filter((t) => t.verify_status === 'verified').length,
+}))
+
+const avgConfidence = computed(() => {
+  if (!tasks.value.length) return '0.00'
+  const sum = tasks.value.reduce((acc, item) => acc + Number(item.confidence || 0), 0)
+  return (sum / tasks.value.length).toFixed(2)
 })
 
-const currentTaskId = ref(null)
-const verifyStatus = ref('verified')
-const verifyResult = ref(null)
-const verifyUpdating = ref(false)
-const originalUrl = ref('')
-const resultUrl = ref('')
-const statusText = ref('已完成')
-const fileSizeText = ref('')
-const resolutionText = ref('')
-const processTimeText = ref('')
-const createdText = ref('')
-const finishedText = ref('')
-const isVideo = ref(false)
-const detections = ref([])
-const llmReport = ref('')
-const taskErrorMessage = ref('')
-let pollTimer = null
-const leftPanelRef = ref(null)
-const imgHeight = ref(320)
-const aiContainerRef = ref(null)
-const aiImgRef = ref(null)
-const aiDrawRect = ref({ offsetX: 0, offsetY: 0, drawW: 0, drawH: 0 })
-const recomputeHeights = () => {
-  const h = leftPanelRef.value ? leftPanelRef.value.offsetHeight : 640
-  const padding = 40
-  const target = Math.max(240, Math.floor((h - padding) / 2))
-  imgHeight.value = target
-}
+const filteredTasks = computed(() => {
+  const list = tasks.value.filter((item) => {
+    const kw = keyword.value.trim().toLowerCase()
+    const matchKeyword = !kw || String(item.id).includes(kw) || String(item.name || '').toLowerCase().includes(kw)
+    const matchType = typeFilter.value === 'all' || item.type === typeFilter.value
+    const matchVerify = verifyFilter.value === 'all' || item.verify_status === verifyFilter.value
+    return matchKeyword && matchType && matchVerify
+  })
+  return [...list].sort((a, b) => idSortOrder.value === 'asc' ? Number(a.id) - Number(b.id) : Number(b.id) - Number(a.id))
+})
 
-const recomputeAiDrawRect = () => {
-  const container = aiContainerRef.value
-  const img = aiImgRef.value
+const pagedTasks = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredTasks.value.slice(start, start + pageSize.value)
+})
+
+const latestReport = computed(() => selectedTask.value?.records?.[0]?.llm_report || 'AI 已完成检测，请结合画面与目标框信息进行人工核实。')
+
+const bboxList = computed(() => {
+  const dets = selectedTask.value?.detections
+  if (!Array.isArray(dets)) return []
+  return dets
+    .filter((item) => item && typeof item === 'object')
+    .map((item) => ({
+      label: item.label || (Number(item.cls) === 0 ? '吸烟行为' : `目标${item.cls ?? ''}`),
+      conf: Number(item.conf || 0),
+      confidenceText: Number(item.conf || 0).toFixed(2),
+      x: Number(item.x || 0),
+      y: Number(item.y || 0),
+      w: Number(item.w || 0),
+      h: Number(item.h || 0),
+    }))
+})
+
+const statusText = (status) => ({ processing: '检测中', completed: '已完成', failed: '任务中断', pending: '等待中' }[status] || '等待中')
+const statusTag = (status) => status === 'completed' ? 'success' : status === 'failed' ? 'danger' : 'warning'
+const confidenceText = (value) => typeof value === 'number' ? value.toFixed(2) : '-'
+const fileNameFromUrl = (url) => (url || '').split('/').pop() || '-'
+const rowClassName = ({ row }) => selectedTask.value?.id === row.id ? 'current-row' : ''
+
+const updatePreviewRect = () => {
+  const container = previewBoxRef.value
+  const img = previewImgRef.value
   if (!container || !img || !img.naturalWidth || !img.naturalHeight) return
   const cw = container.clientWidth
   const ch = container.clientHeight
@@ -249,650 +215,109 @@ const recomputeAiDrawRect = () => {
   const scale = Math.min(cw / iw, ch / ih)
   const drawW = iw * scale
   const drawH = ih * scale
-  const offsetX = (cw - drawW) / 2
-  const offsetY = (ch - drawH) / 2
-  aiDrawRect.value = { offsetX, offsetY, drawW, drawH }
-}
-
-const bboxStyle = (b) => {
-  const r = aiDrawRect.value || {}
-  if (!r.drawW || !r.drawH) {
-    return { left: (b.x || 0) + '%', top: (b.y || 0) + '%', width: (b.w || 0) + '%', height: (b.h || 0) + '%' }
+  previewRect.value = {
+    offsetX: (cw - drawW) / 2,
+    offsetY: (ch - drawH) / 2,
+    drawW,
+    drawH,
   }
-  const x = r.offsetX + (Number(b.x || 0) / 100) * r.drawW
-  const y = r.offsetY + (Number(b.y || 0) / 100) * r.drawH
-  const w = (Number(b.w || 0) / 100) * r.drawW
-  const h = (Number(b.h || 0) / 100) * r.drawH
-  return { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' }
 }
 
-const route = useRoute()
-const router = useRouter()
+const bboxStyle = (box) => {
+  const rect = previewRect.value
+  if (!rect.drawW || !rect.drawH) {
+    return {
+      left: `${box.x}%`,
+      top: `${box.y}%`,
+      width: `${box.w}%`,
+      height: `${box.h}%`,
+    }
+  }
+  return {
+    left: `${rect.offsetX + (box.x / 100) * rect.drawW}px`,
+    top: `${rect.offsetY + (box.y / 100) * rect.drawH}px`,
+    width: `${(box.w / 100) * rect.drawW}px`,
+    height: `${(box.h / 100) * rect.drawH}px`,
+  }
+}
 
-const verifyTextCn = (s) => s === 'pending' ? '待核实' : '已核实'
-const verifyResultTextCn = (s) => s === 'violation' ? '违规' : s === 'pass' ? '通过' : '—'
-
-const loadTask = async () => {
+const loadTasks = async () => {
+  loading.value = true
   try {
-    const routeId = route.params?.id ? Number(route.params.id) : null
-    let id = routeId
-    if (!id) {
-      const list = await axios.get('http://127.0.0.1:8000/api/detection/tasks', { headers: authHeaders() })
-      const items = list.data?.results || []
-      if (!items.length) return
-      id = items[0].id
+    const { data } = await axios.get('/api/detection/tasks', { headers: authHeaders() })
+    tasks.value = data?.results || []
+    if (!selectedTask.value && tasks.value.length) await selectTask(tasks.value[0].id)
+    if (selectedTask.value && !tasks.value.some((item) => item.id === selectedTask.value.id) && tasks.value.length) {
+      await selectTask(tasks.value[0].id)
     }
-    currentTaskId.value = id
-    const resp = await axios.get(`http://127.0.0.1:8000/api/detection/tasks/${id}`, { headers: authHeaders() })
-    const d = resp.data
-    taskInfo.value.id = d.id
-    taskInfo.value.confidence = (typeof d.confidence === 'number' ? (d.confidence * 100).toFixed(0) + '%' : '')
-    taskInfo.value.model = d.model || taskInfo.value.model
-    taskInfo.value.device = d.device || taskInfo.value.device
-    taskInfo.value.createTime = d.created_at
-    taskInfo.value.finishTime = d.finished_at || d.created_at
-    verifyStatus.value = d.verify_status || 'verified'
-    verifyResult.value = d.verify_result || null
-    taskInfo.value.hasViolation = (verifyStatus.value === 'pending') || (Array.isArray(d.detections) && d.detections.some(x => Number(x?.cls) === 0))
-    originalUrl.value = d.original_url || d.source_url || ''
-    resultUrl.value = d.result_url || d.source_url || d.original_url || ''
-    statusText.value = d.status === 'processing' ? '检测中' : d.status === 'failed' ? '任务中断' : '已完成'
-    isVideo.value = (d.type === 'video')
-    detections.value = Array.isArray(d.detections) ? d.detections : []
-    llmReport.value = (d.records && d.records[0] && d.records[0].llm_report) ? d.records[0].llm_report : ''
-    taskErrorMessage.value = (d.error_message || '').toString()
-    fileSizeText.value = d.file_size ? (d.file_size / (1024*1024)).toFixed(2) + ' MB' : ''
-    if (d.resolution && d.resolution.w && d.resolution.h) {
-      resolutionText.value = `${d.resolution.w} x ${d.resolution.h}`
-    }
-    processTimeText.value = d.process_time_ms ? (d.process_time_ms/1000).toFixed(2) + 's' : ''
-    createdText.value = d.created_at
-    finishedText.value = d.finished_at || ''
-    const finishIso = d.finished_at_iso || d.finished_at || ''
-    const completionSig = (d.status === 'completed' && finishIso) ? `${d.id}:${finishIso}:${d.process_time_ms || ''}` : ''
-    if (completionSig && completionSig !== lastCountedSig.value) {
-      runIndex.value = Number(runIndex.value || 0) + 1
-      persistRunIndex()
-      lastCountedSig.value = completionSig
-      persistLastCountedSig()
-    }
-    if (d.status === 'processing') {
-      if (!pollTimer) {
-        pollTimer = window.setInterval(() => {
-          loadTask()
-        }, 1200)
-      }
-    } else if (pollTimer) {
-      window.clearInterval(pollTimer)
-      pollTimer = null
-    }
-  } catch (e) {
-    // 保留静态展示
-  }
-}
-onMounted(loadTask)
-watch(() => route.params?.id, () => {
-  if (pollTimer) {
-    window.clearInterval(pollTimer)
-    pollTimer = null
-  }
-  loadTask()
-})
-onMounted(() => {
-  recomputeHeights()
-  window.addEventListener('resize', recomputeHeights)
-  recomputeAiDrawRect()
-  window.addEventListener('resize', recomputeAiDrawRect)
-})
-onUnmounted(() => {
-  if (pollTimer) window.clearInterval(pollTimer)
-  pollTimer = null
-  window.removeEventListener('resize', recomputeHeights)
-  window.removeEventListener('resize', recomputeAiDrawRect)
-})
-
-const handleExport = async () => {
-  if (!currentTaskId.value) return ElMessage.info('暂无可导出的任务')
-  try {
-    const resp = await axios.post(
-      `http://127.0.0.1:8000/api/detection/tasks/${currentTaskId.value}/export`,
-      {},
-      { responseType: 'blob', headers: authHeaders() }
-    )
-    const blob = new Blob([resp.data], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `task_${currentTaskId.value}_export.csv`
-    a.click()
-    window.URL.revokeObjectURL(url)
-  } catch (e) {
-    ElMessage.error('导出失败')
-  }
-}
-
-const handleRetry = async () => {
-  if (!currentTaskId.value) return ElMessage.info('暂无任务可重试')
-  try {
-    await axios.post(`http://127.0.0.1:8000/api/detection/tasks/${currentTaskId.value}/retry`, {}, { headers: authHeaders() })
-    ElMessage.success('已重新检测')
-    loadTask()
-  } catch (e) {
-    ElMessage.error('重试失败')
-  }
-}
-
-const patchVerifyStatus = async (next) => {
-  if (!currentTaskId.value) return ElMessage.info('暂无可核实的任务')
-  try {
-    verifyUpdating.value = true
-    await axios.patch(
-      `http://127.0.0.1:8000/api/detection/tasks/${currentTaskId.value}/verify`,
-      next,
-      { headers: authHeaders() }
-    )
-    verifyStatus.value = next.verify_status
-    verifyResult.value = next.verify_result || null
-    ElMessage.success('核实状态已更新')
-    loadTask()
-    if (next.verify_status === 'verified') {
-      window.setTimeout(() => {
-        router.push('/dashboard')
-      }, 500)
-    }
-  } catch (e) {
-    const detail = e?.response?.data?.detail
-    ElMessage.error(detail || '核实失败')
   } finally {
-    verifyUpdating.value = false
+    loading.value = false
+    requestAnimationFrame(updatePreviewRect)
   }
 }
 
-const markAsPass = () => patchVerifyStatus({ verify_status: 'verified', verify_result: 'pass' })
-
-const markAsViolation = async () => {
+const selectTask = async (id) => {
+  if (!id) return
+  detailLoading.value = true
   try {
-    await ElMessageBox.confirm(
-      '确定将该任务标记为违规？',
-      '标记违规',
-      { type: 'warning', confirmButtonText: '确认标记', cancelButtonText: '取消', customClass: 'aero-confirm' }
-    )
-    patchVerifyStatus({ verify_status: 'verified', verify_result: 'violation' })
-  } catch {
+    const { data } = await axios.get(`/api/detection/tasks/${id}`, { headers: authHeaders() })
+    selectedTask.value = data || null
+    verifyChoice.value = data?.verify_status === 'pending' ? 'pending' : (data?.verify_result || 'pass')
+    verifyNote.value = ''
+  } finally {
+    detailLoading.value = false
+    requestAnimationFrame(updatePreviewRect)
   }
 }
 
-const cancelVerify = async () => {
-  if (!currentTaskId.value) return
+const handleCurrentChange = (row) => {
+  if (row?.id) selectTask(row.id)
+}
+
+const resetPagination = () => {
+  currentPage.value = 1
+}
+
+const handlePageChange = (page) => {
+  currentPage.value = page
+}
+
+const handlePageSizeChange = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+}
+
+const toggleIdSortOrder = () => {
+  idSortOrder.value = idSortOrder.value === 'asc' ? 'desc' : 'asc'
+  currentPage.value = 1
+}
+
+const submitVerify = async (mode) => {
+  if (!selectedTask.value?.id) return ElMessage.warning('请先选择任务')
+  verifyLoading.value = true
   try {
-    await ElMessageBox.confirm(
-      '取消当前核实结论后，可重新选择核实状态。确认取消？',
-      '取消核实',
-      { type: 'warning', confirmButtonText: '确认取消', cancelButtonText: '返回', customClass: 'aero-confirm' }
-    )
-    patchVerifyStatus({ verify_status: 'pending' })
-  } catch {
+    const payload = mode === 'pass'
+      ? { verify_status: 'verified', verify_result: 'pass' }
+      : { verify_status: 'verified', verify_result: 'violation' }
+    await axios.patch(`/api/detection/tasks/${selectedTask.value.id}/verify`, payload, { headers: authHeaders() })
+    ElMessage.success('核实结果已提交')
+    await loadTasks()
+    await selectTask(selectedTask.value.id)
+  } finally {
+    verifyLoading.value = false
   }
 }
 
-const runIndexKey = 'task_run_index'
-const runIndex = ref(Number(localStorage.getItem(runIndexKey) || 0))
-const lastCountedSigKey = 'task_run_last_counted_sig'
-const lastCountedSig = ref(localStorage.getItem(lastCountedSigKey) || '')
+onMounted(() => {
+  loadTasks()
+  window.addEventListener('resize', updatePreviewRect)
+})
 
-const persistRunIndex = () => {
-  localStorage.setItem(runIndexKey, String(runIndex.value || 0))
-}
-
-const persistLastCountedSig = () => {
-  localStorage.setItem(lastCountedSigKey, String(lastCountedSig.value || ''))
-}
-
-const clearRunIndex = async () => {
-  try {
-    await ElMessageBox.confirm(
-      '此操作仅清空本地“完成计数”，不会删除任何检测任务数据。确认清空？',
-      '二次确认',
-      { type: 'warning', confirmButtonText: '确认清空', cancelButtonText: '取消', customClass: 'aero-confirm' }
-    )
-    runIndex.value = 0
-    persistRunIndex()
-    lastCountedSig.value = ''
-    persistLastCountedSig()
-    ElMessage.success('已清空完成计数')
-  } catch {
-  }
-}
-
-const copyRunIndex = async () => {
-  try {
-    const v = String(runIndex.value ?? '')
-    await navigator.clipboard.writeText(v)
-    ElMessage.success('已复制')
-  } catch (e) {
-    ElMessage.error('复制失败')
-  }
-}
-
-const shareReport = async () => {
-  if (!currentTaskId.value) return ElMessage.info('暂无可分享的任务')
-  try {
-    const resp = await axios.post(
-      `http://127.0.0.1:8000/api/detection/tasks/${currentTaskId.value}/share`,
-      {},
-      { headers: authHeaders() }
-    )
-    const url = resp.data?.url || ''
-    if (!url) return ElMessage.error('生成分享链接失败')
-    await navigator.clipboard.writeText(url)
-    ElMessage.success('分享链接已复制，可直接在浏览器中打开')
-  } catch (e) {
-    const detail = e?.response?.data?.detail
-    ElMessage.error(detail || '生成分享链接失败')
-  }
-}
-
-const friendlyErrorReason = computed(() => {
-  const msg = (taskErrorMessage.value || '').toLowerCase()
-  if (!msg) return '任务运行失败，可能是网络中断或服务异常'
-  if (msg.includes('timeout') || msg.includes('timed out')) return '网络中断或请求超时'
-  if (msg.includes('connection') || msg.includes('gaierror') || msg.includes('dns')) return '网络连接失败（DNS/断网）'
-  if (msg.includes('filenotfounderror') || msg.includes('no such file')) return '上传文件丢失或存储路径错误'
-  if (msg.includes('permissionerror') || msg.includes('permission denied')) return '文件读写权限不足'
-  if (msg.includes('cuda') || msg.includes('cudnn')) return 'GPU/驱动异常（CUDA/CUDNN）'
-  if (msg.includes('invalid') && msg.includes('image')) return '图片格式不支持或文件损坏'
-  return '任务运行失败，可能是网络中断或服务异常'
+onUnmounted(() => {
+  window.removeEventListener('resize', updatePreviewRect)
 })
 </script>
 
 <style scoped>
-:deep(.aero-confirm.el-message-box) {
-  border-radius: 14px;
-  border: 1px solid #edf0f5;
-  box-shadow: 0 18px 50px rgba(17, 27, 39, 0.18);
-}
-:deep(.aero-confirm .el-message-box__header) {
-  padding: 18px 18px 6px 18px;
-}
-:deep(.aero-confirm .el-message-box__title) {
-  font-size: 16px;
-  font-weight: 900;
-  color: #0d1724;
-}
-:deep(.aero-confirm .el-message-box__content) {
-  padding: 8px 18px 0 18px;
-}
-:deep(.aero-confirm .el-message-box__message) {
-  font-size: 13.5px;
-  line-height: 1.6;
-  color: #4a5568;
-}
-:deep(.aero-confirm .el-message-box__btns) {
-  padding: 16px 18px 18px 18px;
-}
-:deep(.aero-confirm .el-button) {
-  border-radius: 10px;
-  font-weight: 800;
-  height: 38px;
-  padding: 0 16px;
-}
-
-.task-detail-page {
-  width: 100%;
-  color: #1a2332;
-  /* 取消 padding，让外部容器 Layout 决定留白 */
-}
-
-.layout-grid {
-  display: flex;
-  gap: 24px;
-  align-items: flex-start;
-}
-
-/* ================= 左侧面板 ================= */
-.left-panel {
-  width: 320px;
-  flex-shrink: 0;
-}
-
-.panel-card {
-  background: #fff;
-  border-radius: 12px;
-  border: 1px solid #edf0f5;
-  padding: 24px;
-}
-
-.task-head { margin-bottom: 24px; }
-.head-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.id-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.share-icon {
-  color: #0d1724;
-  cursor: pointer;
-  transition: opacity 0.18s;
-}
-.share-icon:hover { opacity: 0.7; }
-
-.status-badge {
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 12px;
-  border-radius: 20px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.status-badge.success { background: #f4f7fa; color: #4a5568; border: 1px solid #e8ecf2; }
-.status-badge.processing { background: rgba(59,158,255,.10); color: #3b9eff; border: 1px solid rgba(59,158,255,.20); }
-.status-badge.failed { background: rgba(232,92,92,.10); color: #e85c5c; border: 1px solid rgba(232,92,92,.20); }
-
-.spin {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid rgba(59,158,255,.25);
-  border-top-color: #3b9eff;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.task-id {
-  font-size: 28px;
-  font-weight: 900;
-  color: #0d1724;
-  margin: 0;
-  word-break: break-all;
-}
-.task-id.muted { color: #9aa5b4; font-weight: 800; }
-.task-id-actions { display: flex; gap: 8px; align-items: center; }
-.tiny-btn {
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid #e8ecf2;
-  background: #fff;
-  color: #4a5568;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.18s;
-}
-.tiny-btn:hover { background: #f4f7fa; border-color: #d0e4ff; color: #3b9eff; }
-.tiny-btn.ghost { background: transparent; }
-
-.info-section {
-  margin-bottom: 24px;
-  border-top: 1px solid #f0f3f8;
-  padding-top: 20px;
-}
-.info-section:first-of-type { border-top: none; padding-top: 0; }
-
-.section-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1a2332;
-  margin: 0 0 16px 0;
-}
-
-.info-list {
-  list-style: none;
-  padding: 0; margin: 0;
-}
-.info-list li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 14px;
-  font-size: 13px;
-}
-.info-list li:last-child { margin-bottom: 0; }
-
-.label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #6b7a90;
-}
-.label svg { color: #9aa5b4; }
-.value {
-  font-weight: 600;
-  color: #1a2332;
-  text-align: right;
-}
-
-/* 按钮组 */
-.action-buttons {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 24px;
-}
-.btn-primary, .btn-outline, .btn-danger, .btn-text {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  height: 40px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.2s;
-}
-.btn-primary { background: #3b9eff; border: none; color: white; }
-.btn-primary:hover { background: #2a8aee; box-shadow: 0 4px 12px rgba(59,158,255,0.25); }
-.btn-outline { background: #fff; border: 1px solid #e8ecf2; color: #4a5568; }
-.btn-outline:hover { background: #f4f7fa; border-color: #d0e4ff; color: #3b9eff; }
-.btn-danger { background: #e85c5c; border: none; color: white; padding: 0 20px; }
-.btn-danger:hover { background: #d74b4b; box-shadow: 0 4px 12px rgba(232,92,92,0.25); }
-.btn-text { background: transparent; border: none; color: #4a5568; padding: 0 16px; }
-.btn-text:hover { color: #1a2332; background: #f4f7fa; }
-
-/* 红色告警框 */
-.alert-box {
-  background: #fff1f0;
-  border-radius: 8px;
-  padding: 16px;
-  border: 1px solid rgba(232,92,92,0.2);
-}
-.alert-header {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13.5px; font-weight: 700; color: #e85c5c; margin-bottom: 8px;
-}
-.alert-desc {
-  font-size: 12.5px; color: #c04c4c; line-height: 1.5; margin: 0;
-}
-.alert-desc strong { font-weight: 700; }
-
-
-/* ================= 右侧面板 ================= */
-.right-panel {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.image-card {
-  background: #fff;
-  border-radius: 12px;
-  border: 1px solid #edf0f5;
-  padding: 20px;
-}
-
-.img-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-.img-title {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 14px; font-weight: 700; color: #1a2332;
-}
-.dot { width: 8px; height: 8px; border-radius: 50%; }
-.dot.gray { background: #c8d0dc; }
-.dot.blue { background: #3b9eff; }
-
-.img-subtitle { font-size: 12px; color: #9aa5b4; font-family: monospace; }
-.badge-blue {
-  font-size: 11px; font-weight: 600; color: #3b9eff;
-  background: #eff6ff; padding: 3px 10px; border-radius: 20px;
-}
-.no-dets {
-  margin: -6px 0 12px 0;
-  font-size: 12.5px;
-  color: #6b7a90;
-}
-
-.img-container {
-  width: 100%;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #f4f7fa;
-  border: 1px solid #edf0f5;
-}
-.source-img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  display: block;
-  background: #0b1220;
-}
-.source-video {
-  width: 100%;
-  display: block;
-  height: 100%;
-  background: #0b1220;
-}
-
-.relative-container {
-  position: relative;
-}
-
-.overlay { position: absolute; inset: 0; pointer-events: none; }
-.bbox { position: absolute; border: 2px solid #3b9eff; background: rgba(59,158,255,0.08); box-shadow: 0 0 0 1px rgba(255,255,255,0.2) inset; }
-.bbox.danger { border-color: #e85c5c; background: rgba(232,92,92,0.10); }
-.bbox-label { position: absolute; top: -24px; left: -2px; background: rgba(13, 23, 36, 0.92); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 8px; white-space: nowrap; border-radius: 6px; }
-
-/* ================= 底部操作区 ================= */
-.bottom-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  background: #fff;
-  border: 1px solid #edf0f5;
-  border-radius: 12px;
-  padding: 14px 20px;
-}
-
-.bottom-right { display: flex; align-items: center; gap: 12px; }
-.verify-state { display: inline-flex; align-items: center; gap: 10px; margin-right: 4px; }
-.verify-label { font-size: 12px; font-weight: 800; color: #6b7a90; }
-.verify-pill {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 900;
-  border: 1px solid #edf0f5;
-  color: #6b7a90;
-  background: #f4f7fa;
-}
-.verify-pill.pending { color: #d97706; background: rgba(245,166,35,.12); border-color: rgba(245,166,35,.22); }
-.verify-pill.verified { color: #2fa576; background: rgba(47,165,118,.12); border-color: rgba(47,165,118,.22); }
-.verify-actions { display: inline-flex; align-items: center; gap: 12px; }
-.verify-result { display: inline-flex; align-items: center; gap: 10px; margin-right: 2px; }
-.verify-result-label { font-size: 12px; font-weight: 800; color: #6b7a90; }
-.verify-result-pill {
-  display: inline-flex;
-  align-items: center;
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 900;
-  border: 1px solid #edf0f5;
-  color: #6b7a90;
-  background: #f4f7fa;
-}
-.verify-result-pill.pass { color: #2fa576; background: rgba(47,165,118,.12); border-color: rgba(47,165,118,.22); }
-.verify-result-pill.violation { color: #e85c5c; background: rgba(232,92,92,.12); border-color: rgba(232,92,92,.22); }
-
-.btn-back {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 10px;
-  background: #fff;
-  border: 1px solid #e8ecf2;
-  color: #4a5568;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.18s;
-}
-.btn-back:hover { background: #f4f7fa; border-color: #d0e4ff; color: #3b9eff; }
-
-.btn-soft-danger, .btn-soft-success {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 18px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: all 0.18s;
-}
-.btn-soft-danger {
-  background: #d86161;
-  border-color: rgba(216,97,97,0.92);
-  box-shadow: 0 6px 16px rgba(216,97,97,0.22);
-}
-.btn-soft-danger:hover { background: #cf5656; box-shadow: 0 8px 18px rgba(216,97,97,0.26); }
-.btn-soft-success {
-  background: #2fa576;
-  border-color: rgba(47,165,118,0.95);
-  box-shadow: 0 6px 16px rgba(47,165,118,0.20);
-}
-.btn-soft-success:hover { background: #279d6f; box-shadow: 0 8px 18px rgba(47,165,118,0.25); }
-
-.btn-soft-danger:disabled, .btn-soft-success:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-  box-shadow: none;
-  filter: grayscale(0.15);
-}
-
-.btn-cancel-verify {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 10px;
-  background: #fff;
-  border: 1px solid #e8ecf2;
-  color: #4a5568;
-  font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: all 0.18s;
-}
-.btn-cancel-verify:hover:not(:disabled) { background: #f4f7fa; border-color: #d0e4ff; color: #3b9eff; }
-.btn-cancel-verify:disabled { opacity: 0.65; cursor: not-allowed; }
+.tasks-page{width:100%;max-width:100%;overflow-x:hidden;color:#1a2332;padding-bottom:8px}.page-header{margin-bottom:18px}.page-title{font-size:22px;font-weight:700;color:#0d1724;margin-bottom:6px}.page-sub{font-size:13px;color:#6b7a90;margin:0}.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:18px}.stat-card{background:#fff;border:1px solid #edf0f5;border-radius:14px;padding:18px 20px}.stat-label{font-size:12px;color:#8a97ab;margin-bottom:8px}.stat-value{font-size:28px;font-weight:700;color:#132033;line-height:1}.stat-value.success{color:#16a34a}.stat-value.warn{color:#f59e0b}.stat-sub{margin-top:8px;font-size:12px;color:#9aa5b4}.main-grid{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(380px,.98fr);gap:18px;align-items:start}.panel-card{background:#fff;border:1px solid #edf0f5;border-radius:14px;padding:18px 18px 16px;min-width:0;height:auto}.list-card,.detail-card{display:flex;flex-direction:column;min-width:0}.detail-card{position:sticky;top:92px;align-self:start}.section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}.section-head h3{font-size:18px;margin:0;color:#132033}.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.toolbar-input{width:180px}.toolbar-select{width:96px}.id-sort-head{display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none}.sort-indicator{font-size:12px;color:#3b82f6;font-weight:700}.detail-head{margin-bottom:14px}.detail-model{font-size:12px;color:#8a97ab;padding-top:4px}.image-preview-box{position:relative;height:260px;border-radius:12px;overflow:hidden;background:#f6f8fb;border:1px solid #edf0f5;margin-bottom:16px;flex-shrink:0}.preview-media{width:100%;height:100%;object-fit:contain;display:block;background:#f6f8fb}.bbox-layer{position:absolute;inset:0;pointer-events:none}.bbox-item{position:absolute;border:2px solid #ef4444;box-shadow:0 0 0 1px rgba(255,255,255,.25) inset}.bbox-tag{position:absolute;left:-2px;top:-28px;background:#ef4444;color:#fff;font-size:12px;line-height:1;padding:6px 8px;border-radius:8px 8px 8px 2px;font-weight:600;white-space:nowrap}.detail-meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 18px;margin-bottom:18px}.meta-item{min-width:0;display:flex;flex-direction:column;gap:4px}.meta-label{font-size:12px;color:#98a2b3;line-height:1.2}.meta-value{font-size:14px;font-weight:600;color:#1f2937;line-height:1.5;min-width:0}.ellipsis{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.summary-box{border:none;background:#f7fbff;border:1px solid #dbeafe;border-radius:14px;padding:16px 16px 14px;margin-bottom:16px}.analysis-title,.verify-title{font-size:15px;font-weight:700;color:#132033;margin-bottom:10px}.summary-box p{font-size:13px;line-height:1.8;color:#4f6177;margin:0}.verify-panel{border-top:1px solid #eef2f6;padding-top:16px;margin-top:auto}.verify-radios{display:flex;flex-wrap:wrap;gap:18px;margin-bottom:14px}.verify-panel :deep(.el-radio__label){font-size:13px;color:#475569}.verify-panel :deep(.el-textarea__inner){border-radius:12px;min-height:92px}.verify-action-row{display:flex;justify-content:flex-end;gap:10px;margin-top:14px}.pagination-wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;margin-top:8px;border-top:1px solid #f1f5f9}.pagination-left{font-size:12px;color:#8a97ab;white-space:nowrap}.list-card :deep(.el-table){width:100%}.list-card :deep(.el-table th.el-table__cell){background:#f8fafc;color:#64748b;font-size:12px;font-weight:600}.list-card :deep(.el-table td.el-table__cell){font-size:13px;padding-top:10px;padding-bottom:10px}.list-card :deep(.current-row td){background:#f5f9ff !important}.list-card :deep(.el-table__inner-wrapper::before){display:none}.list-card :deep(.cell){white-space:nowrap}.list-card :deep(.el-tag){max-width:100%}.pagination-wrap :deep(.el-pagination){gap:6px}.pagination-wrap :deep(.el-pagination__sizes .el-select .el-input__wrapper){border-radius:10px;box-shadow:none;border:1px solid #e5e7eb;background:#fff;min-height:32px}.pagination-wrap :deep(.btn-prev),.pagination-wrap :deep(.btn-next),.pagination-wrap :deep(.el-pager li){min-width:32px;height:32px;line-height:32px;border-radius:10px;border:1px solid #e5e7eb;background:#fff;color:#475569;font-weight:600;margin:0;transition:all .18s ease}.pagination-wrap :deep(.el-pager li.is-active){background:#3b82f6;border-color:#3b82f6;color:#fff;box-shadow:0 6px 14px rgba(59,130,246,.18)}.pagination-wrap :deep(.btn-prev:hover),.pagination-wrap :deep(.btn-next:hover),.pagination-wrap :deep(.el-pager li:hover){color:#2563eb;border-color:#bfdbfe;background:#f8fbff}.pagination-wrap :deep(.btn-prev:disabled),.pagination-wrap :deep(.btn-next:disabled){opacity:.45;background:#f8fafc;color:#94a3b8}.pagination-wrap :deep(.el-pagination__jump),.pagination-wrap :deep(.el-pagination__total){color:#94a3b8;font-size:12px}@media (max-width:1280px){.stats-grid{grid-template-columns:repeat(2,1fr)}.main-grid{grid-template-columns:minmax(0,1fr)}.detail-card{position:static;top:auto}.toolbar-input{width:220px}.toolbar-select{width:110px}.image-preview-box{height:300px}}@media (max-width:768px){.stats-grid,.detail-meta-grid{grid-template-columns:1fr}.verify-action-row,.pagination-wrap{flex-direction:column;align-items:stretch}.toolbar{align-items:stretch}.toolbar-input,.toolbar-select{width:100%}.pagination-left{text-align:center}.bbox-tag{font-size:11px;padding:5px 7px}}
 </style>

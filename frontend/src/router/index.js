@@ -70,8 +70,11 @@ const router = createRouter({
         {
           path: 'detection/upload',
           name: 'UploadDetection',
-          
           component: () => import('../views/detection/Upload.vue')
+        },
+        {
+          path: 'detection/launch',
+          redirect: '/detection/upload'
         },
         // ==========================================
         // 下面这些文件你还没建，使用安全的 Placeholder 占位！

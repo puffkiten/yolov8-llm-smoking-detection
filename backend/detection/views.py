@@ -503,48 +503,62 @@ def _process_detection_task(task_id: int, confidence: float):
 def upload_detection(request):
     """
     提交检测任务：
-    - 支持 video 单文件 或 image 多文件
+    - 视频：单文件，创建 1 个 video 任务
+    - 图片：支持单张或多张，逐张创建 image 任务
     - 字段：taskName, confidence, file (video) 或 files[] (images)
     """
-    task_name = request.data.get('taskName') or ''
+    task_name = (request.data.get('taskName') or '').strip()
     confidence = _clamp_conf(request.data.get('confidence'))
     if not task_name:
         return Response({"detail": "任务名称不能为空"}, status=400)
 
     fs = _fs()
-    saved_paths = []
-    saved_names = []
-    is_video = False
+    created_tasks = []
+
     if 'file' in request.FILES:
         f = request.FILES['file']
-        is_video = True
         filename = fs.save(os.path.join('uploads', 'tasks', f.name), f)
-        saved_names.append(filename)
-        saved_paths.append(fs.path(filename))
+        dt = DetectionTask.objects.create(
+            task_name=task_name,
+            task_type='video',
+            file_path=filename,
+            confidence_threshold=confidence,
+            model_name='Aero-YOLO-v8s',
+            device_name='GPU',
+            status='processing',
+            created_by=request.user,
+        )
+        created_tasks.append(dt)
     else:
         files = request.FILES.getlist('files')
         if not files:
             return Response({"detail": "请上传视频或图片文件"}, status=400)
-        for f in files:
+        for index, f in enumerate(files, start=1):
             filename = fs.save(os.path.join('uploads', 'tasks', f.name), f)
-            saved_names.append(filename)
-            saved_paths.append(fs.path(filename))
+            current_name = task_name if len(files) == 1 else f"{task_name}_{index}"
+            dt = DetectionTask.objects.create(
+                task_name=current_name,
+                task_type='image',
+                file_path=filename,
+                confidence_threshold=confidence,
+                model_name='Aero-YOLO-v8s',
+                device_name='GPU',
+                status='processing',
+                created_by=request.user,
+            )
+            created_tasks.append(dt)
 
-    # 创建任务
-    dt = DetectionTask.objects.create(
-        task_name=task_name,
-        task_type='video' if is_video else 'image',
-        file_path=saved_names[0],
-        confidence_threshold=confidence,
-        model_name='Aero-YOLO-v8s',
-        device_name='GPU',
-        status='processing',
-        created_by=request.user,
-    )
+    for task in created_tasks:
+        th = threading.Thread(target=_process_detection_task, args=(task.id, confidence), daemon=True)
+        th.start()
 
-    th = threading.Thread(target=_process_detection_task, args=(dt.id, confidence), daemon=True)
-    th.start()
-    return Response({"code": 200, "id": dt.id, "status": dt.status}, status=202)
+    return Response({
+        "code": 200,
+        "id": created_tasks[0].id if created_tasks else None,
+        "ids": [task.id for task in created_tasks],
+        "created_count": len(created_tasks),
+        "status": created_tasks[0].status if created_tasks else 'processing',
+    }, status=202)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -883,6 +897,44 @@ class CameraViewSet(viewsets.ModelViewSet):
     queryset = Camera.objects.all().order_by('-created_at')
     serializer_class = CameraSerializer
     permission_classes = [IsAuthenticated]
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def cameras_stats(request):
+    qs = Camera.objects.all()
+    total_count = qs.count()
+    serialized = CameraSerializer(qs, many=True).data
+    online_count = sum(1 for item in serialized if item.get('effective_is_online'))
+    offline_count = max(total_count - online_count, 0)
+    return Response({
+        'total_count': total_count,
+        'online_count': online_count,
+        'offline_count': offline_count,
+        'alert_count': 0,
+    }, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def cameras_grouped(request):
+    qs = Camera.objects.all().order_by('region', '-created_at')
+    groups = []
+    region_map = {}
+    for camera in qs:
+        region = camera.region or '未分组'
+        if region not in region_map:
+            region_map[region] = []
+            groups.append({'region': region, 'items': region_map[region]})
+        region_map[region].append(CameraSerializer(camera).data)
+    return Response({'results': groups}, status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def cameras_suggestions(request):
+    qs = Camera.objects.all().order_by('-last_active', '-updated_at', '-created_at')[:5]
+    return Response({'results': CameraSerializer(qs, many=True).data}, status=200)
 
 
 class AIModelViewSet(viewsets.ModelViewSet):

@@ -74,7 +74,7 @@
           </div>
         </div>
 
-        <button class="btn-submit" :disabled="!videoForm.file || videoForm.isUploading" @click="submitToBackend('video')">
+        <button class="btn-submit" :disabled="!videoForm.name.trim() || !videoForm.file || videoForm.isUploading" @click="submitToBackend('video')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           {{ videoForm.isUploading ? '正在上传与分析中...' : '开始 AI 智能分析' }}
         </button>
@@ -149,7 +149,7 @@
           </div>
         </div>
 
-        <button class="btn-submit" :disabled="imgForm.files.length === 0 || imgForm.isUploading" @click="submitToBackend('image')">
+        <button class="btn-submit" :disabled="!imgForm.name.trim() || imgForm.files.length === 0 || imgForm.isUploading" @click="submitToBackend('image')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           {{ imgForm.isUploading ? '正在上传与分析中...' : '开始 AI 智能分析' }}
         </button>
@@ -173,8 +173,11 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
+
+const router = useRouter()
 
 const authHeaders = () => {
   const access = localStorage.getItem('access_token') || ''
