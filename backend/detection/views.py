@@ -7,6 +7,7 @@ import threading
 import secrets
 import shutil
 import subprocess
+import time
 from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -14,6 +15,7 @@ from django.core.files.storage import FileSystemStorage
 from django.core.files.base import ContentFile
 from django.utils import timezone
 from django.db import close_old_connections
+from django.http import StreamingHttpResponse
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
@@ -377,7 +379,11 @@ def _process_video_task(dt: DetectionTask, input_path: str, confidence: float):
             if not writer.isOpened():
                 raise RuntimeError("无法初始化视频编码器")
 
+        names = getattr(model, "names", {}) or {}
         max_conf = 0.0
+        best_detection = None
+        best_frame = None
+        best_frame_idx = 0
         frame_idx = 0
         while True:
             ok, frame = cap.read()
@@ -390,8 +396,25 @@ def _process_video_task(dt: DetectionTask, input_path: str, confidence: float):
             if boxes is not None and len(boxes) > 0:
                 for b in boxes:
                     try:
-                        if int(b.cls[0]) == 0:
-                            max_conf = max(max_conf, float(b.conf[0]))
+                        if int(b.cls[0]) != 0:
+                            continue
+                        confv = float(b.conf[0])
+                        if confv >= max_conf:
+                            xyxy = b.xyxy[0].tolist()
+                            x1, y1, x2, y2 = xyxy
+                            max_conf = confv
+                            best_frame = frame.copy()
+                            best_frame_idx = frame_idx
+                            best_detection = {
+                                "label": names.get(0, "cigarette") if isinstance(names, dict) else "cigarette",
+                                "cls": 0,
+                                "conf": confv,
+                                "x": max(0.0, min(100.0, (x1 / w) * 100.0)),
+                                "y": max(0.0, min(100.0, (y1 / h) * 100.0)),
+                                "w": max(0.0, min(100.0, ((x2 - x1) / w) * 100.0)),
+                                "h": max(0.0, min(100.0, ((y2 - y1) / h) * 100.0)),
+                                "frame_index": frame_idx,
+                            }
                     except Exception:
                         pass
             annotated = r0.plot()
@@ -416,9 +439,9 @@ def _process_video_task(dt: DetectionTask, input_path: str, confidence: float):
         dt.file_size = os.path.getsize(final_abs) if os.path.exists(final_abs) else 0
         dt.resolution_w = w
         dt.resolution_h = h
-        dt.detections = [{"label": "violation", "cls": 0, "conf": max_conf, "x": 0, "y": 0, "w": 0, "h": 0}] if max_conf > 0.0 else []
+        dt.detections = [best_detection] if best_detection else []
         dt.error_message = ''
-        return (max_conf > 0.0), max_conf
+        return (best_detection is not None), max_conf, best_frame
     finally:
         try:
             cap.release()
@@ -446,7 +469,23 @@ def _process_detection_task(task_id: int, confidence: float):
         dets = []
         max_conf = 0.0
         if dt.task_type == 'video':
-            has_smoking, max_conf = _process_video_task(dt, path, confidence)
+            has_smoking, max_conf, best_frame = _process_video_task(dt, path, confidence)
+            llm_report = ''
+            if has_smoking and best_frame is not None:
+                snapshot_rel = os.path.join('snapshots', f'task_{dt.id}_best.jpg')
+                snapshot_abs = _results_fs().path(snapshot_rel)
+                _ensure_dir(os.path.dirname(snapshot_abs))
+                import cv2
+                cv2.imwrite(snapshot_abs, best_frame)
+                llm_report = analyze_smoking(snapshot_abs)
+                SmokingRecord.objects.create(
+                    camera=None,
+                    task=dt,
+                    snapshot=snapshot_rel,
+                    confidence=max_conf or confidence,
+                    llm_report=llm_report,
+                    is_confirmed=True,
+                )
             dt.verify_status = 'pending' if has_smoking else 'verified'
             dt.verify_result = None if has_smoking else 'pass'
         else:
@@ -1133,12 +1172,100 @@ def update_active_model_config(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def camera_preview_stream(request):
-    return Response({'detail': '预览流功能暂未恢复'}, status=501)
+    return Response({'detail': '请使用具体摄像头流地址进行预览'}, status=400)
+
+
+def _camera_source_path(camera: Camera) -> str:
+    stream_url = str(camera.stream_url or '').strip().lstrip('/')
+    if not stream_url:
+        return ''
+    if stream_url.startswith('uploads/camera-files/') or stream_url.startswith('uploads/'):
+        return os.path.join(settings.MEDIA_ROOT, stream_url)
+    return stream_url
+
+
+def _draw_realtime_boxes(frame, confidence: float):
+    results = model.predict(source=frame, conf=confidence, verbose=False)
+    r0 = results[0]
+    boxes = getattr(r0, 'boxes', None)
+    annotated = frame.copy()
+    has_alert = False
+    max_conf = 0.0
+    if boxes is not None and len(boxes) > 0:
+        for b in boxes:
+            try:
+                cls = int(b.cls[0])
+                confv = float(b.conf[0])
+                if cls != 0:
+                    continue
+                has_alert = True
+                max_conf = max(max_conf, confv)
+            except Exception:
+                continue
+        annotated = r0.plot()
+    return annotated, has_alert, max_conf
+
+
+def _mjpeg_frame_bytes(frame):
+    import cv2
+    ok, buffer = cv2.imencode('.jpg', frame)
+    if not ok:
+        return None
+    jpg = buffer.tobytes()
+    return (b'--frame\r\n'
+            b'Content-Type: image/jpeg\r\n\r\n' + jpg + b'\r\n')
+
+
+def _camera_frame_generator(camera: Camera):
+    import cv2
+    source = _camera_source_path(camera)
+    cap = cv2.VideoCapture(source)
+    if not cap.isOpened():
+        camera.is_online = False
+        camera.save(update_fields=['is_online', 'updated_at'])
+        error_frame = None
+        yield b'--frame\r\nContent-Type: text/plain\r\n\r\nstream unavailable\r\n'
+        return
+
+    confidence = float(getattr(camera, 'confidence_threshold', 0.5) or 0.5)
+    try:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                if _camera_uses_uploaded_video(camera):
+                    cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                    continue
+                camera.is_online = False
+                camera.save(update_fields=['is_online', 'updated_at'])
+                break
+
+            annotated, has_alert, max_conf = _draw_realtime_boxes(frame, confidence)
+            camera.is_online = True
+            camera.last_active = timezone.now()
+            camera.save(update_fields=['is_online', 'last_active', 'updated_at'])
+
+            payload = _mjpeg_frame_bytes(annotated)
+            if payload is not None:
+                yield payload
+            time.sleep(0.03)
+    finally:
+        try:
+            cap.release()
+        except Exception:
+            pass
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def camera_stream(request, pk: int):
-    return Response({'detail': f'摄像头 {pk} 实时流功能暂未恢复'}, status=501)
+    try:
+        camera = Camera.objects.get(pk=pk)
+    except Camera.DoesNotExist:
+        return Response({'detail': '摄像头不存在'}, status=404)
+    response = StreamingHttpResponse(_camera_frame_generator(camera), content_type='multipart/x-mixed-replace; boundary=frame')
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response

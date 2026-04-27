@@ -258,6 +258,16 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import axios from 'axios'
 import { buildApiUrl } from '@/utils/http'
 
+const ACTIVATED_CAMERA_IDS_KEY = 'activated_camera_ids'
+const readActivatedCameraIds = () => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ACTIVATED_CAMERA_IDS_KEY) || '[]')
+    return Array.isArray(raw) ? raw.map((id) => Number(id)).filter((id) => Number.isFinite(id)) : []
+  } catch {
+    return []
+  }
+}
+
 const authHeaders = () => {
   const access = localStorage.getItem('access_token') || ''
   return access ? { Authorization: `Bearer ${access}` } : {}
@@ -427,7 +437,8 @@ const pageStartIndex = computed(() => (totalCount.value ? (currentPage.value - 1
 const pageEndIndex = computed(() => (totalCount.value ? Math.min(currentPage.value * pageSize.value, totalCount.value) : 0))
 
 const mapCam = (it, displayIndex = 0) => {
-  const t = Number(it.confidence_threshold || 0)
+  const activatedIds = readActivatedCameraIds()
+  const isActivated = activatedIds.includes(Number(it.id))
   const last = it.last_active ? new Date(it.last_active) : null
   const hh = last ? String(last.getHours()).padStart(2, '0') : ''
   const mm = last ? String(last.getMinutes()).padStart(2, '0') : ''
@@ -437,25 +448,18 @@ const mapCam = (it, displayIndex = 0) => {
     displayId: displayIndex + 1,
     name: it.name,
     region: it.region || '',
-    threshold: Math.round(t * 100),
-    status: it.effective_is_online ? '在线' : '离线',
-    lastSync: last ? `${hh}:${mm}:${ss}` : '—',
+    threshold: 75,
+    status: isActivated ? '在线' : '离线',
+    lastSync: isActivated && last ? `${hh}:${mm}:${ss}` : '—',
     stream_url: it.stream_url || ''
   }
 }
 
 const fetchStats = async () => {
-  try {
-    const res = await axios.get('/api/cameras/stats/', { headers: authHeaders() })
-    const d = res.data || {}
-    totalCameras.value = d.total_count || 0
-    onlineCameras.value = d.online_count || 0
-    offlineCameras.value = d.offline_count || 0
-  } catch {
-    totalCameras.value = cameras.value.length
-    onlineCameras.value = cameras.value.filter((item) => item.status === '在线').length
-    offlineCameras.value = cameras.value.filter((item) => item.status !== '在线').length
-  }
+  const activatedIds = readActivatedCameraIds()
+  totalCameras.value = cameras.value.length || totalCount.value || 0
+  onlineCameras.value = activatedIds.length
+  offlineCameras.value = Math.max(totalCameras.value - onlineCameras.value, 0)
 }
 
 const fetchList = async () => {
@@ -469,10 +473,12 @@ const fetchList = async () => {
       : Array.isArray(res.data?.results)
         ? res.data.results
         : []
-    totalCount.value = Array.isArray(res.data) ? rawList.length : Number(res.data?.count || rawList.length)
     cameras.value = rawList.map((item, index) => mapCam(item, index))
+    totalCount.value = Array.isArray(res.data) ? rawList.length : Number(res.data?.count || rawList.length)
+    totalCameras.value = totalCount.value
     const regions = Array.from(new Set(cameras.value.map(x => x.region).filter(Boolean)))
     customRegions.value = regions
+    fetchStats()
   } catch {
     cameras.value = []
     totalCount.value = 0
@@ -481,11 +487,18 @@ const fetchList = async () => {
 
 // 每 10 秒刷新一次列表以同步在线状态
 let listTimer = null
+const handleActivatedCameraStorageChange = (event) => {
+  if (event.key && event.key !== ACTIVATED_CAMERA_IDS_KEY) return
+  fetchList()
+  fetchStats()
+}
 onMounted(() => {
   listTimer = setInterval(fetchList, 10000)
+  window.addEventListener('storage', handleActivatedCameraStorageChange)
 })
 onUnmounted(() => {
   if (listTimer) clearInterval(listTimer)
+  window.removeEventListener('storage', handleActivatedCameraStorageChange)
 })
 
 const submitForm = async () => {

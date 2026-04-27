@@ -32,17 +32,7 @@
         <div class="video-container" :class="viewMode + '-layout'">
           <template v-if="selectedCams.length > 0">
             <div class="v-card" v-for="cam in selectedCams" :key="cam.id">
-              <video
-                v-if="cam.stream_kind === 'file'"
-                :src="buildStreamUrl(cam)"
-                style="width: 100%; height: 100%; object-fit: cover;"
-                controls
-                muted
-                autoplay
-                loop
-                playsinline
-              />
-              <img v-else :src="buildStreamUrl(cam)" style="width: 100%; height: 100%; object-fit: cover;" />
+              <img :src="buildStreamUrl(cam)" style="width: 100%; height: 100%; object-fit: cover;" />
               <div class="v-overlay">
                 <div class="vo-header">
                   <div class="cam-info-label">
@@ -140,6 +130,19 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import axios from 'axios'
 import { buildApiUrl } from '@/utils/http'
 
+const ACTIVATED_CAMERA_IDS_KEY = 'activated_camera_ids'
+const readActivatedCameraIds = () => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ACTIVATED_CAMERA_IDS_KEY) || '[]')
+    return Array.isArray(raw) ? raw.map((id) => Number(id)).filter((id) => Number.isFinite(id)) : []
+  } catch {
+    return []
+  }
+}
+const writeActivatedCameraIds = (ids) => {
+  localStorage.setItem(ACTIVATED_CAMERA_IDS_KEY, JSON.stringify(ids))
+}
+
 const authHeaders = () => {
   const access = localStorage.getItem('access_token') || ''
   return access ? { Authorization: `Bearer ${access}` } : {}
@@ -150,35 +153,31 @@ const showLabels = ref(true)
 
 const cameraList = ref([])
 const selectedCams = ref([])
+const deviceTree = ref([])
 
 const activeCameraCount = computed(() => selectedCams.value.length)
-
-const deviceTree = ref([])
 const onlineCount = ref(0)
 const totalCount = ref(0)
 const suggestion = ref(null)
 
-const buildStreamUrl = (cam) => {
-  const streamUrl = String(cam.stream_url || '')
-  if (cam.stream_kind === 'file' || streamUrl.startsWith('uploads/camera-files/')) {
-    return buildApiUrl(`/media/${streamUrl.replace(/^\/+/, '')}`)
-  }
-  return buildApiUrl(`/api/cameras/${cam.id}/stream/?t=${Date.now()}`)
-}
+const buildStreamUrl = (cam) => buildApiUrl(`/api/cameras/${cam.id}/stream/?t=${Date.now()}`)
 
 const isSelected = (id) => selectedCams.value.some(c => c.id === id)
+const isActivated = (id) => readActivatedCameraIds().includes(Number(id))
 
 const selectDevice = (dev) => {
   const index = selectedCams.value.findIndex(c => c.id === dev.id)
   if (index > -1) {
     selectedCams.value.splice(index, 1)
   } else {
-    // 限制最多显示 4 路（可选，根据需求调整）
     if (selectedCams.value.length >= 4) {
       selectedCams.value.shift()
     }
     selectedCams.value.push(dev)
   }
+  writeActivatedCameraIds(selectedCams.value.map((item) => Number(item.id)))
+  fetchStats()
+  fetchGrouped()
 }
 
 const fetchSuggestions = async () => {
@@ -204,10 +203,10 @@ const fetchSuggestions = async () => {
 const fetchStats = async () => {
   try {
     const res = await axios.get('/api/cameras/stats/', { headers: authHeaders() })
-    onlineCount.value = Number(res.data?.online_count || 0)
     totalCount.value = Number(res.data?.total_count || 0)
+    onlineCount.value = readActivatedCameraIds().length
   } catch {
-    onlineCount.value = 0
+    onlineCount.value = readActivatedCameraIds().length
     totalCount.value = 0
   }
 }
@@ -234,21 +233,27 @@ const fetchGrouped = async () => {
           loc: it.region || group.region || '',
           stream_url: it.stream_url || '',
           stream_kind: it.stream_kind || 'stream',
-          status: it.effective_is_online ? 'online' : 'offline'
+          status: isActivated(it.id) ? 'online' : 'offline'
         }))
       }
     }).filter(group => group.devices.length > 0)
     deviceTree.value = groups
 
     const allDevices = groups.flatMap(g => g.devices)
-    const allOnline = allDevices.filter(d => d.status === 'online')
-    selectedCams.value = allOnline.slice(0, 4)
     cameraList.value = allDevices
+    const activatedIds = readActivatedCameraIds()
+    selectedCams.value = allDevices.filter((device) => activatedIds.includes(Number(device.id))).slice(0, 4)
   } catch {
     deviceTree.value = []
     selectedCams.value = []
     cameraList.value = []
   }
+}
+
+const handleActivatedCameraStorageChange = (event) => {
+  if (event.key && event.key !== ACTIVATED_CAMERA_IDS_KEY) return
+  fetchStats()
+  fetchGrouped()
 }
 
 onMounted(async () => {
@@ -261,9 +266,11 @@ onMounted(async () => {
     await fetchSuggestions()
   }
   window.addEventListener('focus', refresh)
+  window.addEventListener('storage', handleActivatedCameraStorageChange)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('storage', handleActivatedCameraStorageChange)
   // 移除不再需要的定时器
 })
 </script>
@@ -316,16 +323,6 @@ onUnmounted(() => {
 .spec-label { color: rgba(255,255,255,0.6); font-size: 11px; font-family: monospace; font-weight: 500; }
 .vo-footer { color: rgba(255,255,255,0.8); font-size: 12px; font-family: monospace; }
 .vo-alert-tag { align-self: flex-end; background: #e85c5c; color: #fff; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 12px rgba(232,92,92,0.4); }
-
-/* AI 识别框效果 */
-.ai-box { position: absolute; border: 1.5px solid; z-index: 5; }
-.ai-box.smoking { top: 32%; left: 42%; width: 14%; height: 18%; border-color: #e85c5c; background: rgba(232,92,92,0.1); }
-.ai-box.person { top: 15%; left: 28%; width: 22%; height: 60%; border-color: #3b9eff; background: rgba(59,158,255,0.05); }
-.pulse-red { animation: pulseAnim 1s infinite alternate; }
-@keyframes pulseAnim { from { box-shadow: 0 0 2px #e85c5c; } to { box-shadow: 0 0 12px #e85c5c; } }
-.tag { position: absolute; top: -20px; left: -1px; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 2px 2px 0 0; }
-.tag.red { background: #e85c5c; }
-.tag.blue { background: #3b9eff; }
 
 /* 底部状态条 */
 .status-footer { display: flex; align-items: center; gap: 16px; background: var(--color-bg-page); padding: 18px 24px; border-radius: 12px; border: 1px solid var(--color-border); }

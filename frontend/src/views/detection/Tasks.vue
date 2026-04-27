@@ -88,7 +88,14 @@
                 </div>
               </div>
             </template>
-            <video v-else :src="selectedTask.result_url || selectedTask.original_url" class="preview-media" controls />
+            <template v-else>
+              <video :src="selectedTask.result_url || selectedTask.original_url" class="preview-media" controls />
+              <div class="bbox-layer" v-if="bboxList.length">
+                <div v-for="(box, index) in bboxList" :key="`${box.label}-${index}`" class="bbox-item" :style="bboxStyle(box)">
+                  <span class="bbox-tag">{{ box.label }} {{ box.confidenceText }}</span>
+                </div>
+              </div>
+            </template>
           </div>
 
           <div class="detail-info-grid detail-meta-grid">
@@ -241,6 +248,25 @@ const bboxStyle = (box) => {
   }
 }
 
+const updatePreviewRectByResolution = () => {
+  const container = previewBoxRef.value
+  const task = selectedTask.value
+  const rw = Number(task?.resolution?.w || 0)
+  const rh = Number(task?.resolution?.h || 0)
+  if (!container || !rw || !rh) return
+  const cw = container.clientWidth
+  const ch = container.clientHeight
+  const scale = Math.min(cw / rw, ch / rh)
+  const drawW = rw * scale
+  const drawH = rh * scale
+  previewRect.value = {
+    offsetX: (cw - drawW) / 2,
+    offsetY: (ch - drawH) / 2,
+    drawW,
+    drawH,
+  }
+}
+
 const loadTasks = async () => {
   loading.value = true
   try {
@@ -252,7 +278,10 @@ const loadTasks = async () => {
     }
   } finally {
     loading.value = false
-    requestAnimationFrame(updatePreviewRect)
+    requestAnimationFrame(() => {
+      updatePreviewRect()
+      updatePreviewRectByResolution()
+    })
   }
 }
 
@@ -266,7 +295,10 @@ const selectTask = async (id) => {
     verifyNote.value = ''
   } finally {
     detailLoading.value = false
-    requestAnimationFrame(updatePreviewRect)
+    requestAnimationFrame(() => {
+      updatePreviewRect()
+      updatePreviewRectByResolution()
+    })
   }
 }
 
@@ -311,10 +343,12 @@ const submitVerify = async (mode) => {
 onMounted(() => {
   loadTasks()
   window.addEventListener('resize', updatePreviewRect)
+  window.addEventListener('resize', updatePreviewRectByResolution)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', updatePreviewRect)
+  window.removeEventListener('resize', updatePreviewRectByResolution)
 })
 </script>
 
