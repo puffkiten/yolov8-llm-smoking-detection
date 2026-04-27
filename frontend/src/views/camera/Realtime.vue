@@ -5,8 +5,8 @@
         <div class="matrix-header">
           <div class="mh-left">
             <h2 class="mh-title">监控矩阵 <span class="count-tag">({{ activeCameraCount }}路已联)</span></h2>
-            <div class="live-status-pill">
-              <span class="pulse-dot"></span> AI 实时推理中
+            <div class="live-status-pill" v-if="totalCount > 0">
+              <span class="pulse-dot"></span> {{ onlineCount > 0 ? 'AI 实时推理中' : '暂无在线设备' }}
             </div>
           </div>
 
@@ -58,7 +58,7 @@
           <div class="v-card empty" v-else>
             <div class="empty-placeholder">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#e2e8f0" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              <p>请从右侧列表中选择要监控的摄像头</p>
+              <p>{{ totalCount > 0 ? '请从右侧列表中选择要监控的摄像头' : '请先添加摄像头' }}</p>
             </div>
           </div>
         </div>
@@ -66,8 +66,8 @@
         <div class="status-footer">
           <div class="s-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b9eff" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
           <div class="s-text">
-            <h4>系统状态良好</h4>
-            <p>当前检测频率: 15 FPS | 检测模型: YOLOv8-Smoking-v2 | 告警延迟: &lt; 500ms</p>
+            <h4>{{ totalCount > 0 ? '系统状态良好' : '暂无摄像头设备' }}</h4>
+            <p>{{ totalCount > 0 ? `当前在线设备: ${onlineCount} / ${totalCount}` : '请前往摄像头配置页添加设备后再开始实时监控' }}</p>
           </div>
         </div>
       </main>
@@ -120,7 +120,7 @@
           </div>
         </div>
 
-        <div class="suggestion-card" v-if="suggestion">
+        <div class="suggestion-card" v-if="suggestion && totalCount > 0">
           <div class="sug-title">{{ suggestion.title }}</div>
           <p class="sug-desc">{{ suggestion.desc }}</p>
           <a href="#" class="sug-btn" @click.prevent="$router.push(suggestion.action_url)">{{ suggestion.action_text }} &rarr;</a>
@@ -237,15 +237,17 @@ const fetchGrouped = async () => {
           status: it.effective_is_online ? 'online' : 'offline'
         }))
       }
-    })
+    }).filter(group => group.devices.length > 0)
     deviceTree.value = groups
-    
+
     const allDevices = groups.flatMap(g => g.devices)
     const allOnline = allDevices.filter(d => d.status === 'online')
-    selectedCams.value = (allOnline.length > 0 ? allOnline : allDevices).slice(0, 4)
+    selectedCams.value = allOnline.slice(0, 4)
+    cameraList.value = allDevices
   } catch {
     deviceTree.value = []
     selectedCams.value = []
+    cameraList.value = []
   }
 }
 
@@ -253,6 +255,12 @@ onMounted(async () => {
   await fetchStats()
   await fetchGrouped()
   await fetchSuggestions()
+  const refresh = async () => {
+    await fetchStats()
+    await fetchGrouped()
+    await fetchSuggestions()
+  }
+  window.addEventListener('focus', refresh)
 })
 
 onUnmounted(() => {

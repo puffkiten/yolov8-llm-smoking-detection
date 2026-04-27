@@ -898,6 +898,48 @@ class CameraViewSet(viewsets.ModelViewSet):
     serializer_class = CameraSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        search = (self.request.query_params.get('search') or '').strip()
+        if search:
+            qs = qs.filter(models.Q(name__icontains=search) | models.Q(region__icontains=search))
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(is_online=False, last_active=None)
+
+    def perform_update(self, serializer):
+        serializer.save(is_online=False)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def camera_upload_file(request):
+    upload = request.FILES.get('file')
+    if not upload:
+        return Response({'detail': '未收到上传文件'}, status=400)
+
+    ext = os.path.splitext(upload.name or '')[1].lower()
+    if ext not in {'.mp4', '.avi', '.mov', '.mkv', '.webm'}:
+        return Response({'detail': '仅支持 MP4、AVI、MOV、MKV、WEBM 视频文件'}, status=400)
+
+    relative_dir = os.path.join('uploads', 'camera-files')
+    absolute_dir = os.path.join(settings.MEDIA_ROOT, relative_dir)
+    os.makedirs(absolute_dir, exist_ok=True)
+
+    safe_name = f"{timezone.now().strftime('%Y%m%d%H%M%S')}_{secrets.token_hex(4)}{ext}"
+    relative_path = os.path.join(relative_dir, safe_name)
+    absolute_path = os.path.join(settings.MEDIA_ROOT, relative_path)
+
+    with open(absolute_path, 'wb+') as destination:
+        for chunk in upload.chunks():
+            destination.write(chunk)
+
+    return Response({
+        'detail': '上传成功',
+        'relative_path': relative_path.replace('\\', '/'),
+    }, status=201)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

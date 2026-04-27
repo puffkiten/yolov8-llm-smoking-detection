@@ -63,6 +63,9 @@
                 </div>
               </td>
             </tr>
+            <tr v-if="pagedCameras.length === 0">
+              <td colspan="6" class="empty-table-row">暂无摄像头数据</td>
+            </tr>
           </tbody>
         </table>
         <div class="pagination">
@@ -448,7 +451,11 @@ const fetchStats = async () => {
     totalCameras.value = d.total_count || 0
     onlineCameras.value = d.online_count || 0
     offlineCameras.value = d.offline_count || 0
-  } catch {}
+  } catch {
+    totalCameras.value = cameras.value.length
+    onlineCameras.value = cameras.value.filter((item) => item.status === '在线').length
+    offlineCameras.value = cameras.value.filter((item) => item.status !== '在线').length
+  }
 }
 
 const fetchList = async () => {
@@ -457,8 +464,13 @@ const fetchList = async () => {
       headers: authHeaders(),
       params: { page: currentPage.value, page_size: pageSize.value, search: cameraSearch.value || undefined }
     })
-    totalCount.value = Number(res.data?.count || 0)
-    cameras.value = Array.isArray(res.data?.results) ? res.data.results.map((item, index) => mapCam(item, index)) : []
+    const rawList = Array.isArray(res.data)
+      ? res.data
+      : Array.isArray(res.data?.results)
+        ? res.data.results
+        : []
+    totalCount.value = Array.isArray(res.data) ? rawList.length : Number(res.data?.count || rawList.length)
+    cameras.value = rawList.map((item, index) => mapCam(item, index))
     const regions = Array.from(new Set(cameras.value.map(x => x.region).filter(Boolean)))
     customRegions.value = regions
   } catch {
@@ -606,6 +618,7 @@ onMounted(async () => {
 .aero-table { width: 100%; border-collapse: collapse; }
 .aero-table th { font-size: 13px; color: #9aa5b4; font-weight: 500; text-align: left; padding: 12px 0; border-bottom: 1px solid #f0f3f8; }
 .aero-table td { padding: 16px 0; font-size: 13.5px; border-bottom: 1px solid #f8f9fc; }
+.empty-table-row { text-align: center; color: #9aa5b4; padding: 32px 0 !important; }
 .td-id { font-family: monospace; color: #6b7a90; }
 .status-cell { display: flex; align-items: center; gap: 10px; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; }
